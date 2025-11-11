@@ -684,7 +684,12 @@ function AdminDashboard({ data }: { data: DashboardData }) {
               {recentActivity.slice(0, 10).map(log => (
                 <div key={log.id} className="flex items-start gap-3 text-sm border-b pb-2 last:border-0">
                   <div className="flex-1">
-                    <p className="font-medium">{log.action.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}</p>
+                    <p className="font-medium">
+                      {log.action
+                        .replace(/_/g, " ")
+                        .toLowerCase()
+                        .replace(/\b\w/g, (letter: string) => letter.toUpperCase())}
+                    </p>
                     <p className="text-xs text-muted-foreground">{log.entity} • by {log.user.name}</p>
                   </div>
                   <div className="text-xs text-muted-foreground">

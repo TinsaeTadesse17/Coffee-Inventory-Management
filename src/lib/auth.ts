@@ -20,9 +20,11 @@ export const authConfig: NextAuthConfig = {
           throw new Error("Invalid credentials")
         }
 
+        const { email, password } = credentials as { email: string; password: string }
+
         const user = await prisma.user.findUnique({
           where: {
-            email: credentials.email
+            email
           }
         })
 
@@ -35,7 +37,7 @@ export const authConfig: NextAuthConfig = {
         }
 
         const isCorrectPassword = await bcrypt.compare(
-          credentials.password,
+          password,
           user.password
         )
 
