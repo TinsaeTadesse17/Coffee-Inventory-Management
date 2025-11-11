@@ -6,6 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "render:migrate": "npx prisma migrate deploy",
+    "render:seed": "npx prisma db seed",
+    "start:render": "npm run render:migrate && npm run render:seed && npm run start",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio"
