@@ -35,7 +35,11 @@ export function Navbar() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => {
+              const origin = typeof window !== "undefined" ? window.location.origin : ""
+              const callbackUrl = origin ? `${origin}/login` : "/login"
+              signOut({ callbackUrl })
+            }}
           >
             <LogOut className="h-5 w-5" />
             <span className="sr-only">Sign out</span>
