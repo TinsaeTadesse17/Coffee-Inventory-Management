@@ -1,0 +1,485 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User and Authentication
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      Role     @default(PURCHASING)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  qualityChecks      QualityCheck[]
+  stockMovements     StockMovement[]
+  auditLogs          AuditLog[]
+  contractsApproved  Contract[]         @relation("ContractApprover")
+  contractsCreated   Contract[]         @relation("ContractCreator")
+  processingRuns     ProcessingRun[]
+  shipmentsCreated   Shipment[]
+  documentsUploaded  Document[]
+  weighingRecords    VehicleWeighingRecord[]
+  warehouseEntries   WarehouseEntry[]
+  notifications      Notification[]
+
+  @@map("users")
+}
+
+enum Role {
+  CEO
+  PURCHASING
+  SECURITY
+  QUALITY
+  WAREHOUSE
+  PLANT_MANAGER
+  EXPORT_MANAGER
+  FINANCE
+  ADMIN
+}
+
+// Supplier
+model Supplier {
+  id             String   @id @default(cuid())
+  name           String
+  origin         String
+  contact        String?
+  email          String?
+  phone          String?
+  certifications String[] // Array of certifications (organic, fair trade, etc.)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  batches Batch[]
+
+  @@map("suppliers")
+}
+
+// Batch - Core entity
+model Batch {
+  id                      String          @id @default(cuid())
+  batchNumber             String          @unique
+  supplierId              String
+  origin                  String
+  grade                   String?
+  variety                 String?
+  processingType          ProcessingType  @default(NATURAL)
+  purchaseDate            DateTime
+  purchasedQuantityKg     Float
+  purchaseCost            Float
+  purchaseCurrency        String          @default("ETB")
+  containerCount          Int?
+  status                  BatchStatus     @default(ORDERED)
+  currentLocation         String?
+  representativeSampleId  String?         @unique
+  contractId              String?
+  reprocessCount          Int             @default(0)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  // Relations
+  supplier              Supplier                @relation(fields: [supplierId], references: [id])
+  contract              Contract?               @relation(fields: [contractId], references: [id])
+  representativeSample  RepresentativeSample?   @relation(fields: [representativeSampleId], references: [id])
+  weighingRecords       VehicleWeighingRecord[]
+  warehouseEntries      WarehouseEntry[]
+  qualityChecks         QualityCheck[]
+  stockMovements        StockMovement[]
+  documents             Document[]
+  processingInputs      ProcessingRun[]         @relation("ProcessingInputs")
+  processingOutputs     ProcessingRun[]         @relation("ProcessingOutputs")
+  pssRecords            PSSRecord[]
+
+  @@map("batches")
+}
+
+enum ProcessingType {
+  NATURAL
+  WASHED
+  SPECIAL
+  ANAEROBIC
+  HONEY
+}
+
+enum BatchStatus {
+  ORDERED
+  AT_GATE
+  AT_WAREHOUSE
+  STORED
+  PROCESSING_REQUESTED
+  IN_PROCESSING
+  PROCESSED
+  EXPORT_READY
+  IN_TRANSIT
+  SHIPPED
+  REJECTED
+  REPROCESSING
+}
+
+// Vehicle Weighing Record (Security Checkpoint)
+model VehicleWeighingRecord {
+  id                String    @id @default(cuid())
+  batchId           String
+  vehiclePlate      String
+  timestampIn       DateTime  @default(now())
+  grossWeightIn     Float // car + coffee in kg
+  timestampOut      DateTime?
+  grossWeightOut    Float? // car weight when leaving
+  tareWeight        Float? // recorded or looked up car weight
+  netWeight         Float? // calculated net coffee weight
+  weightLossKg      Float?
+  weightLossPercent Float?
+  checkpointType    String    @default("GATE")
+  authorityDocsUrl  String[] // Coffee & Tea Authority documents
+  notes             String?
+  recordedBy        String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  batch      Batch @relation(fields: [batchId], references: [id])
+  recordedByUser User @relation(fields: [recordedBy], references: [id])
+
+  @@map("vehicle_weighing_records")
+}
+
+// Warehouse Entry
+model WarehouseEntry {
+  id                 String                @id @default(cuid())
+  batchId            String
+  warehouseNumber    String
+  entryType          WarehouseEntryType    @default(ARRIVAL)
+  arrivalTimestamp   DateTime              @default(now())
+  arrivalWeightKg    Float
+  storageLocations   String[]              @default([])
+  moisturePercent    Float?
+  temperatureCelsius Float?
+  bags               Int?
+  notes              String?
+  receivedBy         String
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  // Relations
+  batch          Batch @relation(fields: [batchId], references: [id])
+  receivedByUser User  @relation(fields: [receivedBy], references: [id])
+
+  @@map("warehouse_entries")
+}
+
+enum WarehouseEntryType {
+  ARRIVAL
+  REJECT
+  EXPORT
+}
+
+// Quality Check
+model QualityCheck {
+  id               String        @id @default(cuid())
+  batchId          String
+  checkpoint       QCCheckpoint
+  inspectorId      String
+  sessionName      String
+  sessionDate      DateTime
+  origin           String?
+  roastProfile     String?
+  moisturePercent  Float?
+  defectsScore     Float?
+  fragranceScore   Int?
+  flavorScore      Int?
+  aftertasteScore  Int?
+  acidityScore     Int?
+  bodyScore        Int?
+  balanceScore     Int?
+  sweetnessScore   Int?
+  uniformityScore  Int?
+  cleanCupScore    Int?
+  overallScore     Int?
+  totalScore       Float?
+  notes            String?
+  timestamp        DateTime      @default(now())
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // Relations
+  batch     Batch @relation(fields: [batchId], references: [id])
+  inspector User  @relation(fields: [inspectorId], references: [id])
+
+  @@map("quality_checks")
+}
+
+enum QCCheckpoint {
+  FIRST_QC // At warehouse arrival
+  POST_PROCESSING
+  CLU // Government inspection before export
+  REPROCESS_CHECK
+}
+
+// Representative Sample
+model RepresentativeSample {
+  id              String   @id @default(cuid())
+  sampleCode      String   @unique
+  photoUrls       String[]
+  storageLocation String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  batch Batch?
+
+  @@map("representative_samples")
+}
+
+// Stock Movement
+model StockMovement {
+  id           String   @id @default(cuid())
+  batchId      String
+  fromLocation String?
+  toLocation   String
+  quantityKg   Float
+  reason       String
+  timestamp    DateTime @default(now())
+  movedBy      String
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  batch       Batch @relation(fields: [batchId], references: [id])
+  movedByUser User  @relation(fields: [movedBy], references: [id])
+
+  @@map("stock_movements")
+}
+
+// Processing Run
+model ProcessingRun {
+  id              String    @id @default(cuid())
+  runNumber       String    @unique
+  startTime       DateTime
+  endTime         DateTime?
+  yieldRatio      Float?
+  exportQuantity  Float?
+  rejectQuantity  Float?
+  jotbagQuantity  Float?
+  notes           String?
+  processedBy     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  inputBatches  Batch[] @relation("ProcessingInputs")
+  outputBatches Batch[] @relation("ProcessingOutputs")
+  processedByUser User  @relation(fields: [processedBy], references: [id])
+
+  @@map("processing_runs")
+}
+
+// Contract (Buyer Contract)
+model Contract {
+  id                String         @id @default(cuid())
+  contractNumber    String         @unique
+  buyer             String
+  buyerEmail        String?
+  destinationCountry String
+  coffeeType        String
+  gradeSpec         String?
+  quantityKg        Float
+  pricePerKg        Float?
+  priceCurrency     String         @default("USD")
+  shippingDate      DateTime?
+  paymentMethod     PaymentMethod  @default(TT)
+  approvalStatus    ApprovalStatus @default(PENDING)
+  ceoApprovedBy     String?
+  ceoApprovedAt     DateTime?
+  createdBy         String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relations
+  batches        Batch[]
+  shipments      Shipment[]
+  approver       User?      @relation("ContractApprover", fields: [ceoApprovedBy], references: [id])
+  creator        User       @relation("ContractCreator", fields: [createdBy], references: [id])
+
+  @@map("contracts")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// PSS (Pre-Shipment Sample)
+model PSSRecord {
+  id            String      @id @default(cuid())
+  batchId       String
+  buyerEmail    String
+  sentDate      DateTime    @default(now())
+  status        PSSStatus   @default(PENDING)
+  buyerFeedback String?
+  respondedAt   DateTime?
+  attemptNumber Int         @default(1)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  batch Batch @relation(fields: [batchId], references: [id])
+
+  @@map("pss_records")
+}
+
+enum PSSStatus {
+  PENDING
+  SENT
+  ACCEPTED
+  REJECTED
+}
+
+// Shipment
+model Shipment {
+  id                String         @id @default(cuid())
+  contractId        String
+  shipmentNumber    String         @unique
+  bookingInfo       String?
+  shippingLine      String?
+  containerNumber   String?
+  shippingDate      DateTime?
+  paymentMethod     PaymentMethod?
+  status            ShipmentStatus @default(BOOKED)
+  permitRequested   Boolean        @default(false)
+  permitReceived    Boolean        @default(false)
+  bankReceiptUrl    String?
+  paid              Boolean        @default(false)
+  paidAt            DateTime?
+  createdBy         String
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relations
+  contract       Contract   @relation(fields: [contractId], references: [id])
+  documents      Document[]
+  createdByUser  User       @relation(fields: [createdBy], references: [id])
+
+  @@map("shipments")
+}
+
+enum PaymentMethod {
+  TT // Telegraphic Transfer
+  LC // Letter of Credit
+  CAD // Cash Against Documents
+}
+
+enum ShipmentStatus {
+  BOOKED
+  DOCUMENTS_READY
+  CLU_PENDING
+  CLU_PASSED
+  CLU_FAILED
+  PERMIT_REQUESTED
+  PERMIT_RECEIVED
+  IN_TRANSIT
+  ARRIVED
+  PAID
+}
+
+// Document
+model Document {
+  id         String       @id @default(cuid())
+  batchId    String?
+  shipmentId String?
+  type       DocumentType
+  fileName   String
+  fileUrl    String
+  fileSize   Int?
+  mimeType   String?
+  uploadedBy String
+  uploadedAt DateTime     @default(now())
+  createdAt  DateTime     @default(now())
+
+  // Relations
+  batch          Batch?    @relation(fields: [batchId], references: [id])
+  shipment       Shipment? @relation(fields: [shipmentId], references: [id])
+  uploadedByUser User      @relation(fields: [uploadedBy], references: [id])
+
+  @@map("documents")
+}
+
+enum DocumentType {
+  COFFEE_AUTHORITY
+  CLU
+  BILL_OF_LADING
+  ORIGINAL_BILL
+  CONTRACT
+  PSS
+  PURCHASE_ORDER
+  QUALITY_CERTIFICATE
+  BANK_RECEIPT
+  PERMIT
+  OTHER
+}
+
+// Notification
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  read      Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  WEIGHT_LOSS_ALERT
+  MOISTURE_ALERT
+  SHIPPING_DATE_ALERT
+  PSS_REJECTED
+  QC_FAILED
+  CONTRACT_APPROVED
+  PERMIT_REQUIRED
+  GENERAL
+}
+
+// Audit Log
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  entity      String // table/model name
+  entityId    String // record ID
+  action      String // CREATE, UPDATE, DELETE
+  beforeData  Json? // snapshot before change
+  afterData   Json? // snapshot after change
+  changes     Json? // specific fields changed
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
