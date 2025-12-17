@@ -15,18 +15,27 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
+import { BatchSelector } from "@/components/ui/batch-selector"
 
 export function NewWeighingRecordButton() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [batchId, setBatchId] = useState("")
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
 
     try {
+      if (!batchId) {
+        toast.error("Please select a batch")
+        setLoading(false)
+        return
+      }
+
       const formData = new FormData(e.currentTarget)
       const data = {
+        batchId: batchId,
         vehiclePlate: formData.get("vehiclePlate"),
         driverName: formData.get("driverName"),
         grossWeight: parseFloat(formData.get("grossWeight") as string),
@@ -69,15 +78,27 @@ export function NewWeighingRecordButton() {
           New Weighing Record
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <form onSubmit={onSubmit}>
-          <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh]">
+        <form onSubmit={onSubmit} className="flex flex-col max-h-[calc(90vh-8rem)]">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Record Vehicle Weighing</DialogTitle>
             <DialogDescription>
               Record weighing details for incoming coffee delivery.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 overflow-y-auto flex-1 min-h-0 pr-2">
+            <div className="grid gap-2">
+              <Label htmlFor="batchId">Batch to Weigh *</Label>
+              <BatchSelector
+                value={batchId}
+                onChange={setBatchId}
+                filter={(batch) => batch.status === "ORDERED"}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">
+                Select which purchased batch is arriving for weighing
+              </p>
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="vehiclePlate">Vehicle Plate Number *</Label>
               <Input
@@ -124,7 +145,7 @@ export function NewWeighingRecordButton() {
               Net weight will be calculated automatically: Gross - Tare
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button
               type="button"
               variant="outline"

@@ -33,6 +33,7 @@ model User {
   weighingRecords    VehicleWeighingRecord[]
   warehouseEntries   WarehouseEntry[]
   notifications      Notification[]
+  additionalCosts    AdditionalCost[]
 
   @@map("users")
 }
@@ -72,26 +73,36 @@ model Supplier {
 model Batch {
   id                      String          @id @default(cuid())
   batchNumber             String          @unique
-  supplierId              String
+  supplierId              String?
+  isThirdParty            Boolean         @default(false)
+  thirdPartyEntityId      String?
   origin                  String
   grade                   String?
   variety                 String?
   processingType          ProcessingType  @default(NATURAL)
   purchaseDate            DateTime
   purchasedQuantityKg     Float
+  currentQuantityKg       Float // Track current quantity after deductions
   purchaseCost            Float
   purchaseCurrency        String          @default("ETB")
+  exchangeRateAtPurchase  Float? // ETB to USD rate
   containerCount          Int?
   status                  BatchStatus     @default(ORDERED)
   currentLocation         String?
   representativeSampleId  String?         @unique
   contractId              String?
   reprocessCount          Int             @default(0)
+  warehouseEntryDate      DateTime? // Track when entered warehouse for aging alerts
+  isAging                 Boolean         @default(false) // Flag for 6+ months
+  isDuplicateEntry        Boolean         @default(false)
+  duplicateApprovedBy     String?
+  queuePosition           Int? // For third-party processing queue
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
 
   // Relations
-  supplier              Supplier                @relation(fields: [supplierId], references: [id])
+  supplier              Supplier?               @relation(fields: [supplierId], references: [id])
+  thirdPartyEntity      ThirdPartyEntity?       @relation(fields: [thirdPartyEntityId], references: [id])
   contract              Contract?               @relation(fields: [contractId], references: [id])
   representativeSample  RepresentativeSample?   @relation(fields: [representativeSampleId], references: [id])
   weighingRecords       VehicleWeighingRecord[]
@@ -100,8 +111,10 @@ model Batch {
   stockMovements        StockMovement[]
   documents             Document[]
   processingInputs      ProcessingRun[]         @relation("ProcessingInputs")
+  processingRunInputs   ProcessingRunInput[]
   processingOutputs     ProcessingRun[]         @relation("ProcessingOutputs")
   pssRecords            PSSRecord[]
+  additionalCosts       AdditionalCost[]
 
   @@map("batches")
 }
@@ -164,6 +177,10 @@ model WarehouseEntry {
   entryType          WarehouseEntryType    @default(ARRIVAL)
   arrivalTimestamp   DateTime              @default(now())
   arrivalWeightKg    Float
+  measurementType    MeasurementType       @default(KILOGRAM)
+  juteBagSize        JuteBagSize?
+  juteBagCount       Int?
+  feresulaBags       Int? // Count of Feresula bags (17kg each)
   storageLocations   String[]              @default([])
   moisturePercent    Float?
   temperatureCelsius Float?
@@ -178,6 +195,19 @@ model WarehouseEntry {
   receivedByUser User  @relation(fields: [receivedBy], references: [id])
 
   @@map("warehouse_entries")
+}
+
+enum MeasurementType {
+  JUTE_BAG
+  FERESULA
+  KILOGRAM
+}
+
+enum JuteBagSize {
+  KG_30
+  KG_50
+  KG_60
+  KG_85 // For reject coffee
 }
 
 enum WarehouseEntryType {
@@ -264,15 +294,24 @@ model StockMovement {
   @@map("stock_movements")
 }
 
+enum ProcessingStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
 // Processing Run
 model ProcessingRun {
   id              String    @id @default(cuid())
   runNumber       String    @unique
+  status          ProcessingStatus @default(IN_PROGRESS)
   startTime       DateTime
   endTime         DateTime?
+  processingGrade String? // Grade 1, 2, 3 etc.
   yieldRatio      Float?
   exportQuantity  Float?
   rejectQuantity  Float?
+  wasteQuantity   Float?
   jotbagQuantity  Float?
   notes           String?
   processedBy     String
@@ -280,11 +319,25 @@ model ProcessingRun {
   updatedAt       DateTime  @updatedAt
 
   // Relations
-  inputBatches  Batch[] @relation("ProcessingInputs")
+  inputBatches  Batch[] @relation("ProcessingInputs") // Legacy relation, keep for now or migrate data
+  inputs        ProcessingRunInput[]
   outputBatches Batch[] @relation("ProcessingOutputs")
   processedByUser User  @relation(fields: [processedBy], references: [id])
+  costs         ProcessingCost[]
 
   @@map("processing_runs")
+}
+
+model ProcessingRunInput {
+  id              String        @id @default(cuid())
+  processingRunId String
+  batchId         String
+  weightUsed      Float
+  
+  processingRun   ProcessingRun @relation(fields: [processingRunId], references: [id])
+  batch           Batch         @relation(fields: [batchId], references: [id])
+
+  @@map("processing_run_inputs")
 }
 
 // Contract (Buyer Contract)
@@ -299,6 +352,7 @@ model Contract {
   quantityKg        Float
   pricePerKg        Float?
   priceCurrency     String         @default("USD")
+  exchangeRateAtExport Float? // ETB to USD rate at export
   shippingDate      DateTime?
   paymentMethod     PaymentMethod  @default(TT)
   approvalStatus    ApprovalStatus @default(PENDING)
@@ -460,7 +514,95 @@ enum NotificationType {
   QC_FAILED
   CONTRACT_APPROVED
   PERMIT_REQUIRED
+  APPROVAL_REQUEST
+  BATCH_READY
+  AGING_ALERT
+  DUPLICATE_ENTRY
+  PROCESSING_COMPLETE
+  JUTE_BAG_LOW_STOCK
   GENERAL
+}
+
+// Third Party Entity (for processing other entities' coffee)
+model ThirdPartyEntity {
+  id            String   @id @default(cuid())
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  batches Batch[]
+
+  @@map("third_party_entities")
+}
+
+// Jute Bag Inventory
+model JuteBagInventory {
+  id              String      @id @default(cuid())
+  size            JuteBagSize
+  quantity        Int
+  pricePerBag     Float // In ETB
+  lowStockAlert   Int         @default(50) // Alert threshold
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([size])
+  @@map("jute_bag_inventory")
+}
+
+// Additional Costs (transportation, documentation, etc.)
+model AdditionalCost {
+  id          String   @id @default(cuid())
+  batchId     String?
+  costType    String // "Transportation", "Documentation", "Weighing", "Storage", etc.
+  description String
+  amount      Float
+  currency    String   @default("ETB")
+  recordedBy  String
+  recordedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  // Relations
+  batch          Batch? @relation(fields: [batchId], references: [id])
+  recordedByUser User   @relation(fields: [recordedBy], references: [id])
+
+  @@map("additional_costs")
+}
+
+// Processing Costs (for third-party processing)
+model ProcessingCost {
+  id              String        @id @default(cuid())
+  processingRunId String
+  costType        String // "Processing Grade 1", "Processing Grade 2", "Weighing", "Storage", "Moving"
+  amount          Float
+  currency        String        @default("ETB")
+  notes           String?
+  createdAt       DateTime      @default(now())
+
+  // Relations
+  processingRun ProcessingRun @relation(fields: [processingRunId], references: [id])
+
+  @@map("processing_costs")
+}
+
+// Storage Cost Tracking (for third-party coffee after 15 days)
+model StorageCost {
+  id              String   @id @default(cuid())
+  batchId         String
+  startDate       DateTime
+  endDate         DateTime?
+  daysStored      Int
+  juteBagCount    Int
+  costPerTonPerDay Float   @default(2200) // ETB
+  totalCost       Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("storage_costs")
 }
 
 // Audit Log

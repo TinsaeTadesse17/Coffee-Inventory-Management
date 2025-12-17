@@ -4,7 +4,7 @@ import { AuthProvider } from "@/components/providers/session-provider";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "Esset Coffee Dashboard",
+  title: "Eset Coffee Dashboard",
   description: "Coffee Supply Chain Management System",
 };
 

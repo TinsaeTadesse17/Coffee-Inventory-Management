@@ -1,19 +1,19 @@
 import { Role } from "@prisma/client"
 import { 
   LayoutDashboard, ShoppingCart, Scale, Warehouse, FlaskConical, 
-  Factory, Ship, DollarSign, FileText, Settings
+  Factory, Ship, DollarSign, FileText, Settings, Users
 } from "lucide-react"
 
 export const roleNavigation: Record<Role, string[]> = {
-  CEO: ["/dashboard", "/export", "/finance"],
+  CEO: ["/dashboard", "/export", "/finance", "/settings"],
   PURCHASING: ["/dashboard", "/purchasing"],
   SECURITY: ["/dashboard", "/weighing"],
   QUALITY: ["/dashboard", "/quality"],
-  WAREHOUSE: ["/dashboard", "/warehouse"],
+  WAREHOUSE: ["/dashboard", "/warehouse", "/settings"],
   PLANT_MANAGER: ["/dashboard", "/processing"],
   EXPORT_MANAGER: ["/dashboard", "/export"],
   FINANCE: ["/dashboard", "/finance"],
-  ADMIN: ["/dashboard", "/purchasing", "/weighing", "/warehouse", "/quality", "/export", "/processing", "/finance", "/admin"],
+  ADMIN: ["/dashboard", "/purchasing", "/weighing", "/warehouse", "/quality", "/export", "/processing", "/finance", "/admin", "/settings"],
 }
 
 const allNavigation = [
@@ -26,7 +26,8 @@ const allNavigation = [
   { name: "Processing", href: "/processing", icon: Factory },
   { name: "Finance", href: "/finance", icon: DollarSign },
   { name: "Reports", href: "/reports", icon: FileText },
-  { name: "Admin", href: "/admin", icon: Settings },
+  { name: "Admin", href: "/admin", icon: Users },
+  { name: "Settings", href: "/settings", icon: Settings },
 ]
 
 export function getNavigationForRole(role: Role) {

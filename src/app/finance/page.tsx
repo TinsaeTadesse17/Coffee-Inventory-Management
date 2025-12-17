@@ -5,12 +5,15 @@ import { prisma } from "@/lib/prisma"
 import { formatDistanceToNow } from "date-fns"
 import { DownloadFinancialReportButton } from "@/components/finance/download-financial-report-button"
 import { DownloadSupplierLedgerButton } from "@/components/finance/download-supplier-ledger-button"
+import { NewAdditionalCostButton } from "@/components/finance/new-additional-cost-button"
+import { formatCurrency } from "@/lib/format-utils"
+import { getSettings } from "@/lib/settings"
 
 export default async function FinancePage() {
   const user = await requireRoles(["FINANCE", "CEO", "ADMIN"])
 
   // Fetch real financial data
-  const [batches, contracts, processingRuns, suppliers, warehouseEntries] = await Promise.all([
+  const [batches, contracts, processingRuns, suppliers, warehouseEntries, additionalCosts, settings, processingCosts, storageCosts] = await Promise.all([
     prisma.batch.findMany({
       include: { supplier: true },
       orderBy: { createdAt: "desc" },
@@ -32,10 +35,34 @@ export default async function FinancePage() {
       orderBy: { arrivalTimestamp: "desc" },
       take: 50,
     }),
+    prisma.additionalCost.findMany({
+      include: {
+        recordedByUser: true,
+        batch: true
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50
+    }),
+    getSettings(),
+    prisma.processingCost.findMany({
+      orderBy: { createdAt: "desc" }
+    }),
+    prisma.storageCost.findMany({
+      orderBy: { createdAt: "desc" }
+    })
   ])
+
+  const exchangeRate = settings.exchangeRate
 
   // Calculate Payables (money we owe to suppliers)
   const totalPayables = batches.reduce((sum, batch) => sum + batch.purchaseCost, 0)
+  const totalAdditionalCosts = additionalCosts.reduce((sum, cost) => sum + cost.amount, 0)
+  
+  // Calculate Service Revenue (Third Party)
+  const totalProcessingRevenue = processingCosts.reduce((sum, c) => sum + c.amount, 0)
+  const totalStorageRevenue = storageCosts.reduce((sum, c) => sum + c.totalCost, 0)
+  const totalServiceRevenue = totalProcessingRevenue + totalStorageRevenue
+
   // For simplicity, assume all batches are unpaid (can add payment tracking later)
   const unpaidPayables = totalPayables
 
@@ -44,7 +71,7 @@ export default async function FinancePage() {
   const totalReceivables = approvedContracts.reduce(
     (sum, contract) => sum + (contract.quantityKg * (contract.pricePerKg || 0)), 
     0
-  )
+  ) + totalServiceRevenue // Add service revenue to receivables
   
   // Calculate pending contracts (awaiting CEO approval)
   const pendingContracts = contracts.filter(c => c.approvalStatus === "PENDING")
@@ -89,14 +116,15 @@ export default async function FinancePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Finance</h1>
-          <p className="text-muted-foreground">Payments and financial tracking</p>
+          <p className="text-muted-foreground">Financial overview and reports</p>
         </div>
         <div className="flex gap-2">
-          <DownloadFinancialReportButton />
+          <NewAdditionalCostButton />
           <DownloadSupplierLedgerButton />
+          <DownloadFinancialReportButton />
         </div>
       </div>
 
@@ -111,7 +139,10 @@ export default async function FinancePage() {
             <div className="text-2xl font-bold text-red-600">
               ETB {unpaidPayables.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              ${(unpaidPayables / exchangeRate).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
               {batches.length} total batches
             </p>
           </CardContent>
@@ -126,7 +157,10 @@ export default async function FinancePage() {
             <div className="text-2xl font-bold text-green-600">
               ${totalReceivables.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              ETB {(totalReceivables * exchangeRate).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
               {approvedContracts.length} approved contracts
             </p>
           </CardContent>
@@ -141,8 +175,29 @@ export default async function FinancePage() {
             <div className="text-2xl font-bold text-yellow-600">
               ${pendingValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              ETB {(pendingValue * exchangeRate).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
               {pendingContracts.length} contracts awaiting CEO
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Service Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-600">
+              ETB {totalServiceRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              ${(totalServiceRevenue / exchangeRate).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Processing & Storage Fees
             </p>
           </CardContent>
         </Card>
@@ -156,8 +211,29 @@ export default async function FinancePage() {
             <div className="text-2xl font-bold">
               ETB {inventoryValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              ${(inventoryValue / exchangeRate).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
               Current stock value
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Additional Costs</CardTitle>
+            <DollarSign className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              ETB {totalAdditionalCosts.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              ${(totalAdditionalCosts / exchangeRate).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Transport, duties, etc.
             </p>
           </CardContent>
         </Card>
@@ -173,7 +249,10 @@ export default async function FinancePage() {
             <div className="text-2xl font-bold">
               ETB {totalCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
-            <p className="text-xs text-muted-foreground">{batches.length} batches purchased</p>
+            <p className="text-sm text-muted-foreground">
+              ${(totalCost / exchangeRate).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">{batches.length} batches purchased</p>
           </CardContent>
         </Card>
 
@@ -185,7 +264,10 @@ export default async function FinancePage() {
             <div className="text-2xl font-bold text-green-600">
               ${exportValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
+              ETB {(exportValue * exchangeRate).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
               {processingRuns.reduce((sum, r) => sum + (r.exportQuantity || 0), 0).toFixed(0)} kg export grade
             </p>
           </CardContent>
@@ -269,6 +351,55 @@ export default async function FinancePage() {
         </CardContent>
       </Card>
 
+      {/* Recent Additional Costs */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Additional Costs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {additionalCosts.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              No additional costs recorded yet.
+            </div>
+          ) : (
+            <div className="relative overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs uppercase bg-muted">
+                  <tr>
+                    <th className="px-4 py-3">Date</th>
+                    <th className="px-4 py-3">Type</th>
+                    <th className="px-4 py-3">Description</th>
+                    <th className="px-4 py-3">Amount (ETB)</th>
+                    <th className="px-4 py-3">Related Batch</th>
+                    <th className="px-4 py-3">Recorded By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {additionalCosts.map((cost) => (
+                    <tr key={cost.id} className="border-b">
+                      <td className="px-4 py-3">
+                        {new Date(cost.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 font-medium">{cost.costType}</td>
+                      <td className="px-4 py-3">{cost.description}</td>
+                      <td className="px-4 py-3 font-semibold text-red-600">
+                        {formatCurrency(cost.amount)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {cost.batch ? cost.batch.batchNumber : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {cost.recordedByUser.name}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Recent Warehouse Entries (Payment Tracking) */}
       <Card>
         <CardHeader>
@@ -301,7 +432,7 @@ export default async function FinancePage() {
                       </td>
                       <td className="px-4 py-3 font-medium">{entry.warehouseNumber}</td>
                       <td className="px-4 py-3">{entry.batch.batchNumber}</td>
-                      <td className="px-4 py-3">{entry.batch.supplier.name}</td>
+                      <td className="px-4 py-3">{entry.batch.supplier?.name || 'Unknown'}</td>
                       <td className="px-4 py-3">{entry.arrivalWeightKg.toFixed(2)}</td>
                       <td className="px-4 py-3 font-semibold">
                         {entry.batch.purchaseCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}

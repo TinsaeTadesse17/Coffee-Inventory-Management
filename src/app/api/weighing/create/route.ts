@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import { notifyBatchReady } from "@/lib/notification-service"
+import { Role } from "@prisma/client"
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,21 +13,31 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json()
-    const netWeight = data.grossWeight - data.tareWeight
+    const { batchId, grossWeight, tareWeight, driverName } = data
 
-    // Find a batch that's ordered (ready for weighing)
+    if (!batchId) {
+      return NextResponse.json(
+        { error: "Batch ID is required" },
+        { status: 400 }
+      )
+    }
+
+    const netWeight = grossWeight - tareWeight
+
+    // Find the specific batch that's ordered (ready for weighing)
     const batch = await prisma.batch.findFirst({
-      where: { status: "ORDERED" },
-      orderBy: { createdAt: "desc" },
+      where: { 
+        OR: [
+          { id: batchId },
+          { batchNumber: batchId }
+        ],
+        status: "ORDERED"
+      },
     })
 
     if (!batch) {
-      // Count total batches to give better error message
-      const totalBatches = await prisma.batch.count()
-      const orderedBatches = await prisma.batch.count({ where: { status: "ORDERED" } })
-      
       return NextResponse.json(
-        { error: `No ORDERED batches available for weighing. Total batches: ${totalBatches}, ORDERED batches: ${orderedBatches}. Create a purchase order first.` },
+        { error: `Batch not found or not in ORDERED status. Please select a valid purchased batch.` },
         { status: 400 }
       )
     }
@@ -35,11 +47,11 @@ export async function POST(request: NextRequest) {
       data: {
         batchId: batch.id,
         vehiclePlate: data.vehiclePlate,
-        grossWeightIn: data.grossWeight,
-        tareWeight: data.tareWeight,
+        grossWeightIn: grossWeight,
+        tareWeight: tareWeight,
         netWeight: netWeight,
         recordedBy: session.user.id,
-        notes: data.driverName ? `Driver: ${data.driverName}` : undefined,
+        notes: driverName ? `Driver: ${driverName}` : undefined,
       },
     })
 
@@ -52,16 +64,34 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Notify Warehouse team that batch is ready for receipt
+    try {
+      await notifyBatchReady({
+        batchId: batch.id,
+        batchNumber: batch.batchNumber,
+        nextRole: Role.WAREHOUSE,
+        stepName: "Warehouse Receipt",
+      })
+    } catch (notifyError) {
+      console.error("Failed to send notification:", notifyError)
+      // Continue execution
+    }
+
     // Create audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        entity: "VehicleWeighingRecord",
-        entityId: weighingRecord.id,
-        action: "CREATE_WEIGHING_RECORD",
-        changes: JSON.stringify({ netWeight, ...data }),
-      },
-    })
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          entity: "VehicleWeighingRecord",
+          entityId: weighingRecord.id,
+          action: "CREATE_WEIGHING_RECORD",
+          changes: JSON.stringify({ netWeight, ...data }),
+        },
+      })
+    } catch (auditError) {
+      console.error("Failed to create audit log:", auditError)
+      // Continue execution
+    }
 
     return NextResponse.json({ success: true, weighingRecord, netWeight }, { status: 201 })
   } catch (error) {

@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus, AlertTriangle, CheckCircle2, Minus } from "lucide-react"
 import { toast } from "sonner"
+import { BatchSelector } from "@/components/ui/batch-selector"
+import { WeightInput, WeightUnit, JuteBagSize } from "@/components/ui/weight-input"
 
 const warehouseEntryOptions = [
   { value: "ARRIVAL", label: "Arrival" },
@@ -47,6 +49,7 @@ export function ReceiveBatchButton() {
   const [storageLocations, setStorageLocations] = useState<string[]>([""])
   const [weighingRecord, setWeighingRecord] = useState<WeighingRecord | null>(null)
   const [fetchingRecord, setFetchingRecord] = useState(false)
+  const [weightMeta, setWeightMeta] = useState<{ unit: WeightUnit, bagSize?: JuteBagSize, count?: number }>({ unit: "KILOGRAM" })
 
   // Fetch weighing record when batch ID changes
   useEffect(() => {
@@ -94,6 +97,12 @@ export function ReceiveBatchButton() {
     setLoading(true)
 
     try {
+      if (!batchId) {
+        toast.error("Please select a batch")
+        setLoading(false)
+        return
+      }
+
       const formData = new FormData(e.currentTarget)
       const filteredLocations = storageLocations.map(loc => loc.trim()).filter(Boolean)
 
@@ -108,7 +117,11 @@ export function ReceiveBatchButton() {
         storageLocations: filteredLocations,
         entryType,
         receivedWeight: parseFloat(receivedWeight),
-        bags: formData.get("bags"),
+        measurementType: weightMeta.unit,
+        juteBagSize: weightMeta.bagSize,
+        juteBagCount: weightMeta.unit === "JUTE_BAG" ? weightMeta.count : undefined,
+        feresulaBags: weightMeta.unit === "FERESULA" ? weightMeta.count : undefined,
+        bags: weightMeta.unit === "JUTE_BAG" ? weightMeta.count : formData.get("bags"),
         notes: formData.get("notes"),
       }
 
@@ -153,25 +166,26 @@ export function ReceiveBatchButton() {
           Receive Batch
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <form onSubmit={onSubmit}>
-          <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh]">
+        <form onSubmit={onSubmit} className="flex flex-col max-h-[calc(90vh-8rem)]">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Receive Batch in Warehouse</DialogTitle>
             <DialogDescription>
               Record batch movement and assign storage locations.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 overflow-y-auto flex-1 min-h-0 pr-2">
             <div className="grid gap-2">
               <Label htmlFor="batchId">Batch ID *</Label>
-              <Input
-                id="batchId"
-                name="batchId"
-                placeholder="e.g., BTH-2024-001"
-                required
+              <BatchSelector
                 value={batchId}
-                onChange={(e) => setBatchId(e.target.value)}
+                onChange={setBatchId}
+                filter={(batch) => batch.status === "AT_GATE" || batch.status === "ORDERED"}
+                className="w-full"
               />
+              <p className="text-xs text-muted-foreground">
+                Only batches that have been weighed at the gate appear here
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="entryType">Warehouse Entry Type *</Label>
@@ -276,31 +290,27 @@ export function ReceiveBatchButton() {
                 Add one or multiple locations if the batch is split across zones.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <WeightInput 
+                value={parseFloat(receivedWeight)}
+                onChange={(val, meta) => {
+                  setReceivedWeight(val.toString())
+                  setWeightMeta(meta)
+                }}
+              />
+            </div>
+            
+            {weightMeta.unit !== "JUTE_BAG" && (
               <div className="grid gap-2">
-                <Label htmlFor="receivedWeight">Received Weight (kg) *</Label>
-                <Input
-                  id="receivedWeight"
-                  name="receivedWeight"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  required
-                  value={receivedWeight}
-                  onChange={(e) => setReceivedWeight(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bags">Number of Bags *</Label>
+                <Label htmlFor="bags">Number of Bags</Label>
                 <Input
                   id="bags"
                   name="bags"
                   type="number"
                   placeholder="0"
-                  required
                 />
               </div>
-            </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="notes">Notes</Label>
               <textarea
@@ -342,7 +352,7 @@ export function ReceiveBatchButton() {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button
               type="button"
               variant="outline"

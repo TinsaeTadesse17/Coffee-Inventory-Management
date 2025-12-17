@@ -1,6 +1,7 @@
 import { requireAuth } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { RoleDashboard } from "@/components/dashboard/role-dashboards"
+import { getSettings } from "@/lib/settings"
 
 export default async function DashboardPage() {
   const user = await requireAuth()
@@ -14,7 +15,11 @@ export default async function DashboardPage() {
     contracts,
     todayWarehouseEntries,
     recentActivity,
-    weighingRecords
+    weighingRecords,
+    additionalCosts,
+    settings,
+    processingCosts,
+    storageCosts
   ] = await Promise.all([
     prisma.batch.findMany({
       include: { supplier: true },
@@ -47,7 +52,24 @@ export default async function DashboardPage() {
       take: 10,
     }),
     prisma.vehicleWeighingRecord.findMany({
+      include: {
+        batch: {
+          include: {
+            supplier: true
+          }
+        }
+      },
       orderBy: { timestampIn: "desc" },
+    }),
+    prisma.additionalCost.findMany({
+      orderBy: { recordedAt: "desc" },
+    }),
+    getSettings(),
+    prisma.processingCost.findMany({
+      orderBy: { createdAt: "desc" }
+    }),
+    prisma.storageCost.findMany({
+      orderBy: { createdAt: "desc" }
     })
   ])
 
@@ -67,7 +89,11 @@ export default async function DashboardPage() {
         contracts,
         todayWarehouseEntries,
         recentActivity,
-        weighingRecords
+        weighingRecords,
+        additionalCosts,
+        processingCosts,
+        storageCosts,
+        exchangeRate: settings.exchangeRate
       }} />
     </div>
   )

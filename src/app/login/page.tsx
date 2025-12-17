@@ -44,7 +44,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Esset Coffee Dashboard</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Eset Coffee Dashboard</CardTitle>
           <CardDescription className="text-center">
             Enter your credentials to access the system
           </CardDescription>

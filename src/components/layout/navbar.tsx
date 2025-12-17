@@ -2,8 +2,9 @@
 
 import { signOut, useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
-import { Bell, LogOut, User } from "lucide-react"
+import { LogOut } from "lucide-react"
 import { getRoleDisplayName } from "@/lib/auth-helpers"
+import { NotificationPanel } from "./notification-panel"
 
 export function Navbar() {
   const { data: session } = useSession()
@@ -24,13 +25,7 @@ export function Navbar() {
             </div>
           )}
           
-          <button
-            type="button"
-            className="-m-2.5 p-2.5 text-muted-foreground hover:text-foreground"
-          >
-            <span className="sr-only">View notifications</span>
-            <Bell className="h-6 w-6" aria-hidden="true" />
-          </button>
+          <NotificationPanel />
 
           <Button
             variant="ghost"

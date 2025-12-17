@@ -104,7 +104,7 @@ export default async function QualityPage() {
                     <tr key={check.id} className="border-b">
                       <td className="px-4 py-3 font-medium">
                         <div>{check.batch.batchNumber}</div>
-                        <p className="text-xs text-muted-foreground">{check.batch.supplier.name}</p>
+                        <p className="text-xs text-muted-foreground">{check.batch.supplier?.name || 'Unknown'}</p>
                       </td>
                       <td className="px-4 py-3">{check.checkpoint}</td>
                       <td className="px-4 py-3">

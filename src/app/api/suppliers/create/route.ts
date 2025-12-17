@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
+import { notifyBatchReady } from "@/lib/notification-service"
+import { Role } from "@prisma/client"
+import { generateId } from "@/lib/utils"
+import { getSettings } from "@/lib/settings"
+
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { auth } from "@/lib/auth"
+import { generateId } from "@/lib/utils"
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,36 +40,55 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Create batch with purchase order
+    // Get current exchange rate
+    const settings = await getSettings()
+
+        // Create batch with purchase order
     const batch = await prisma.batch.create({
       data: {
-        batchNumber: `BTH-${Date.now()}`,
+        batchNumber: generateId("BTH"),
         supplierId: supplier.id,
         origin: data.origin,
-        purchaseDate: new Date(),
-        purchasedQuantityKg: data.quantityKg,
-        purchaseCost: data.quantityKg * data.pricePerKg,
-        purchaseCurrency: "ETB",
-        status: "ORDERED",
-      },
-    })
 
     // Create audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        entity: "Batch",
-        entityId: batch.id,
-        action: "CREATE_PURCHASE_ORDER",
-        changes: JSON.stringify(data),
-      },
-    })
+    try {
+      await prisma.auditLog.create({
+        data: {
+          userId: session.user.id,
+          entity: "Batch",
+          entityId: batch.id,
+          action: "CREATE_PURCHASE_ORDER",
+          changes: JSON.stringify(data),
+        },
+      })
+    } catch (auditError) {
+      console.error("Failed to create audit log:", auditError)
+      // Continue execution, don't fail the request
+    }
+
+    // Notify Security team that batch is ready for weighing
+    try {
+      await notifyBatchReady({
+        batchId: batch.id,
+        batchNumber: batch.batchNumber,
+        nextRole: Role.SECURITY,
+        stepName: "Weighing at Gate",
+      })
+    } catch (notifyError) {
+      console.error("Failed to send notification:", notifyError)
+      // Continue execution, don't fail the request
+    }
 
     return NextResponse.json({ success: true, batch }, { status: 201 })
   } catch (error) {
     console.error("Failed to create purchase order:", error)
+    // If batch was created but something else failed, we might want to handle that differently
+    // But here we are in the top level catch, so likely batch creation failed if we are here
+    // unless the try/catches above didn't catch everything.
+    
+    // Ensure we return a valid JSON error object
     return NextResponse.json(
-      { error: "Failed to create purchase order" },
+      { error: error instanceof Error ? error.message : "Failed to create purchase order" },
       { status: 500 }
     )
   }

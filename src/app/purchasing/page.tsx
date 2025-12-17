@@ -1,6 +1,8 @@
 import { requireRoles } from "@/lib/auth-helpers"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { NewPurchaseOrderButton } from "@/components/purchasing/new-purchase-order-button"
+import { NewThirdPartyBatchButton } from "@/components/purchasing/new-third-party-batch-button"
+import { NewAdditionalCostButton } from "@/components/finance/new-additional-cost-button"
 import { prisma } from "@/lib/prisma"
 import { formatDistanceToNow } from "date-fns"
 
@@ -11,6 +13,7 @@ export default async function PurchasingPage() {
   const recentBatches = await prisma.batch.findMany({
     include: {
       supplier: true,
+      thirdPartyEntity: true,
     },
     orderBy: {
       createdAt: "desc",
@@ -22,10 +25,14 @@ export default async function PurchasingPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Purchasing</h1>
-          <p className="text-muted-foreground">Manage purchase orders and suppliers</p>
+          <h1 className="text-3xl font-bold tracking-tight">Purchasing & Sourcing</h1>
+          <p className="text-muted-foreground">Manage purchase orders and third-party processing requests</p>
         </div>
-        <NewPurchaseOrderButton />
+        <div className="flex gap-2">
+          <NewAdditionalCostButton />
+          <NewThirdPartyBatchButton />
+          <NewPurchaseOrderButton />
+        </div>
       </div>
 
       <Card>
@@ -55,7 +62,11 @@ export default async function PurchasingPage() {
                   {recentBatches.map((batch) => (
                     <tr key={batch.id} className="border-b">
                       <td className="px-4 py-3 font-medium">{batch.batchNumber}</td>
-                      <td className="px-4 py-3">{batch.supplier.name}</td>
+                      <td className="px-4 py-3">
+                        {batch.isThirdParty 
+                          ? <span className="text-blue-600 font-medium">{batch.thirdPartyEntity?.name} (3rd Party)</span>
+                          : batch.supplier?.name || 'Unknown'}
+                      </td>
                       <td className="px-4 py-3">{batch.origin}</td>
                       <td className="px-4 py-3">{batch.purchasedQuantityKg.toFixed(2)}</td>
                       <td className="px-4 py-3">{batch.purchaseCost.toFixed(2)}</td>

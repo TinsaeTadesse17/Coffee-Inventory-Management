@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { requireRoles } from "@/lib/auth-helpers"
+import { auth } from "@/lib/auth"
+import { notifyBatchReady } from "@/lib/notification-service"
 import { Role } from "@prisma/client"
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireRoles([Role.QUALITY, Role.ADMIN])
+    const session = await auth()
+    
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const user = session.user
+    if (user.role !== Role.QUALITY && user.role !== Role.ADMIN) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
     const data = await request.json()
 
@@ -106,6 +116,12 @@ export async function POST(request: NextRequest) {
     // Decide QC outcome based on total score (threshold: 80)
     const passed = totalScore >= 80
 
+    // Check if this is the first QC check
+    const existingQcCount = await prisma.qualityCheck.count({
+      where: { batchId: batch.id }
+    })
+    const isFirstQc = existingQcCount === 0
+
     // Create QC check
     const qcCheck = await prisma.qualityCheck.create({
       data: {
@@ -131,6 +147,21 @@ export async function POST(request: NextRequest) {
         status: passed ? "STORED" : "REJECTED",
       },
     })
+
+    // Notify Plant Manager if this is a passing First QC check
+    // This signals that the coffee is ready for processing
+    if (passed && checkpoint === "FIRST_QC") {
+      try {
+        await notifyBatchReady({
+          batchId: batch.id,
+          batchNumber: batch.batchNumber,
+          nextRole: Role.PLANT_MANAGER,
+          stepName: "Processing",
+        })
+      } catch (notifyError) {
+        console.error("Failed to send notification:", notifyError)
+      }
+    }
 
     // Create audit log
     await prisma.auditLog.create({

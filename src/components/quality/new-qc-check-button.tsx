@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
+import { BatchSelector } from "@/components/ui/batch-selector"
 
 const scoreDefinitions = [
   { name: "fragrance", label: "Fragrance" },
@@ -32,6 +33,7 @@ const scoreDefinitions = [
 export function NewQCCheckButton() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [batchId, setBatchId] = useState("")
   const [scores, setScores] = useState<Record<string, number>>(
     scoreDefinitions.reduce((acc, def) => ({ ...acc, [def.name]: 0 }), {} as Record<string, number>)
   )
@@ -41,8 +43,18 @@ export function NewQCCheckButton() {
     [scores]
   )
 
-  const handleScoreChange = (name: string, value: string) => {
-    const numericValue = Number(value)
+  const handleScoreChange = (name: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    let numericValue = parseFloat(value)
+
+    if (numericValue > 10) {
+      e.target.value = "10"
+      numericValue = 10
+    } else if (numericValue < 0) {
+      e.target.value = "0"
+      numericValue = 0
+    }
+
     setScores((prev) => ({
       ...prev,
       [name]: Number.isNaN(numericValue) ? 0 : numericValue,
@@ -54,9 +66,15 @@ export function NewQCCheckButton() {
     setLoading(true)
 
     try {
+      if (!batchId) {
+        toast.error("Please select a batch")
+        setLoading(false)
+        return
+      }
+
       const formData = new FormData(e.currentTarget)
       const payload = {
-        batchId: formData.get("batchId"),
+        batchId: batchId,
         sessionName: formData.get("sessionName"),
         sessionDate: formData.get("sessionDate"),
         origin: formData.get("origin"),
@@ -109,23 +127,32 @@ export function NewQCCheckButton() {
           New QC Check
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
-        <form onSubmit={onSubmit}>
-          <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh]">
+        <form onSubmit={onSubmit} className="flex flex-col max-h-[calc(90vh-8rem)]">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>New Quality Check</DialogTitle>
             <DialogDescription>
               Record quality inspection results for a batch.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="grid gap-4 py-4 overflow-y-auto flex-1 min-h-0 pr-2">
             <div className="grid gap-2">
               <Label htmlFor="batchId">Batch ID *</Label>
-              <Input
-                id="batchId"
-                name="batchId"
-                placeholder="e.g., BTH-2024-001"
-                required
+              <BatchSelector
+                value={batchId}
+                onChange={setBatchId}
+                filter={(batch) => 
+                  batch.status === "STORED" || 
+                  batch.status === "AT_WAREHOUSE" ||
+                  batch.status === "PROCESSED" ||
+                  batch.status === "EXPORT_READY" ||
+                  batch.status === "REJECTED"
+                }
+                className="w-full"
               />
+              <p className="text-xs text-muted-foreground">
+                Quality checks can be done on batches in warehouse or after processing
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="sessionName">Session Name *</Label>
@@ -175,7 +202,7 @@ export function NewQCCheckButton() {
                     min="0"
                     max="10"
                     required
-                    onChange={(event) => handleScoreChange(score.name, event.target.value)}
+                    onChange={(e) => handleScoreChange(score.name, e)}
                   />
                 </div>
               ))}
@@ -194,7 +221,7 @@ export function NewQCCheckButton() {
               <span className="font-semibold">{totalScore.toFixed(2)}</span>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button
               type="button"
               variant="outline"

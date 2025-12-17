@@ -73,15 +73,15 @@ export function NewContractButton() {
           New Contract
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <form onSubmit={onSubmit}>
-          <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh]">
+        <form onSubmit={onSubmit} className="flex flex-col max-h-[calc(90vh-8rem)]">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>New Export Contract</DialogTitle>
             <DialogDescription>
               Create a new contract with a buyer. Requires CEO approval.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 overflow-y-auto flex-1 min-h-0 pr-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="buyerName">Buyer Name *</Label>
@@ -182,7 +182,7 @@ export function NewContractButton() {
               Contract details can be refined after CEO approval. Ensure payment method aligns with buyer agreement.
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button
               type="button"
               variant="outline"

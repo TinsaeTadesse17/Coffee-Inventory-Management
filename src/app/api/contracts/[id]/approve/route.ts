@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireAuth, requireRoles } from "@/lib/auth-helpers"
 import { Role } from "@prisma/client"
+import { notifyByRole } from "@/lib/notification-service"
 
 export async function PATCH(
   request: NextRequest,
@@ -69,6 +70,22 @@ export async function PATCH(
           newStatus: approvalStatus,
         }),
       },
+    })
+
+    // Notify Export Manager about contract approval/rejection
+    const creator = await prisma.user.findUnique({
+      where: { id: contract.createdBy },
+      select: { name: true },
+    })
+
+    await notifyByRole({
+      role: Role.EXPORT_MANAGER,
+      type: action === "APPROVE" ? "CONTRACT_APPROVED" : "GENERAL",
+      title: action === "APPROVE" ? "Contract Approved" : "Contract Rejected",
+      message: action === "APPROVE"
+        ? `Contract ${contract.contractNumber} has been approved by CEO. You can now proceed with shipment.`
+        : `Contract ${contract.contractNumber} has been rejected by CEO. Please review and resubmit if needed.`,
+      link: `/export?contractId=${contract.id}`,
     })
 
     return NextResponse.json({ contract: updatedContract })

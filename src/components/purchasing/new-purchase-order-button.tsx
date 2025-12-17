@@ -15,10 +15,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
+import { WeightInput, WeightUnit, JuteBagSize } from "@/components/ui/weight-input"
 
 export function NewPurchaseOrderButton() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [quantityKg, setQuantityKg] = useState("")
+  const [weightMeta, setWeightMeta] = useState<{ unit: WeightUnit, bagSize?: JuteBagSize, count?: number }>({ unit: "KILOGRAM" })
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -28,9 +31,13 @@ export function NewPurchaseOrderButton() {
       const formData = new FormData(e.currentTarget)
       const data = {
         supplierName: formData.get("supplierName"),
-        quantityKg: parseFloat(formData.get("quantityKg") as string),
+        quantityKg: parseFloat(quantityKg),
         pricePerKg: parseFloat(formData.get("pricePerKg") as string),
         origin: formData.get("origin"),
+        // Optional: Pass measurement details if backend supports it (it doesn't yet, but good for future)
+        measurementType: weightMeta.unit,
+        bagSize: weightMeta.bagSize,
+        bagCount: weightMeta.count
       }
 
       const response = await fetch("/api/suppliers/create", {
@@ -69,15 +76,15 @@ export function NewPurchaseOrderButton() {
           New Purchase Order
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
-        <form onSubmit={onSubmit}>
-          <DialogHeader>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh]">
+        <form onSubmit={onSubmit} className="flex flex-col max-h-[calc(90vh-8rem)]">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Create Purchase Order</DialogTitle>
             <DialogDescription>
               Create a new purchase order for coffee from a supplier.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 overflow-y-auto flex-1 min-h-0 pr-2">
             <div className="grid gap-2">
               <Label htmlFor="supplierName">Supplier Name *</Label>
               <Input
@@ -96,32 +103,29 @@ export function NewPurchaseOrderButton() {
                 required
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="quantityKg">Quantity (kg) *</Label>
-                <Input
-                  id="quantityKg"
-                  name="quantityKg"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="pricePerKg">Price per kg (ETB) *</Label>
-                <Input
-                  id="pricePerKg"
-                  name="pricePerKg"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
+            <div className="grid gap-2">
+              <Label>Quantity *</Label>
+              <WeightInput
+                value={parseFloat(quantityKg)}
+                onChange={(val, meta) => {
+                  setQuantityKg(val.toString())
+                  setWeightMeta(meta)
+                }}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="pricePerKg">Price per kg (ETB) *</Label>
+              <Input
+                id="pricePerKg"
+                name="pricePerKg"
+                type="number"
+                step="0.01"
+                placeholder="0.00"
+                required
+              />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button
               type="button"
               variant="outline"

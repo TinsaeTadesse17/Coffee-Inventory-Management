@@ -1,11 +1,24 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { requireRoles } from "@/lib/auth-helpers"
-import { BatchStatus, Role, WarehouseEntryType } from "@prisma/client"
+import { auth } from "@/lib/auth"
+import { BatchStatus, Role, WarehouseEntryType, MeasurementType, JuteBagSize } from "@prisma/client"
+import { convertToKilograms } from "@/lib/format-utils"
+import { notifyDuplicateEntry, notifyBatchReady, notifyLowJuteBagStock } from "@/lib/notification-service"
+import { generateId } from "@/lib/utils"
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireRoles([Role.WAREHOUSE, Role.ADMIN])
+    const session = await auth()
+    
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const user = session.user
+    const allowedRoles: Role[] = [Role.WAREHOUSE, Role.ADMIN, Role.CEO]
+    if (!allowedRoles.includes(user.role as Role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
     const data = await request.json()
 
@@ -16,19 +29,32 @@ export async function POST(request: NextRequest) {
       bags,
       notes,
       entryType = WarehouseEntryType.ARRIVAL,
+      measurementType = MeasurementType.KILOGRAM,
+      juteBagSize,
+      juteBagCount,
+      feresulaBags,
     } = data
 
-    if (!batchId || !receivedWeight) {
+    if (!batchId) {
       return NextResponse.json(
-        { error: "Batch ID and received weight are required" },
+        { error: "Batch ID is required" },
         { status: 400 }
       )
     }
 
-    const parsedWeight = Number(receivedWeight)
-    if (Number.isNaN(parsedWeight) || parsedWeight <= 0) {
+    // Calculate weight based on measurement type
+    let calculatedWeight = 0
+    if (measurementType === MeasurementType.KILOGRAM && receivedWeight) {
+      calculatedWeight = Number(receivedWeight)
+    } else if (measurementType === MeasurementType.JUTE_BAG && juteBagCount && juteBagSize) {
+      calculatedWeight = convertToKilograms(Number(juteBagCount), measurementType, juteBagSize)
+    } else if (measurementType === MeasurementType.FERESULA && feresulaBags) {
+      calculatedWeight = convertToKilograms(Number(feresulaBags), measurementType)
+    }
+
+    if (calculatedWeight <= 0) {
       return NextResponse.json(
-        { error: "Invalid received weight" },
+        { error: "Invalid weight or measurement" },
         { status: 400 }
       )
     }
@@ -66,33 +92,94 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find batch that's at the gate
+    // Find the specific batch by ID or batch number
     const batch = await prisma.batch.findFirst({
       where: { 
         OR: [
           { id: batchId },
-          { batchNumber: batchId },
-          { status: "AT_GATE" }
+          { batchNumber: batchId }
         ]
       },
-      orderBy: { createdAt: "desc" },
     })
 
     if (!batch) {
       return NextResponse.json(
-        { error: "Batch not found. Weigh it at the gate first." },
+        { error: "Batch not found. Please select a valid batch." },
         { status: 400 }
       )
+    }
+
+    // Check if batch is in the correct status for warehouse receipt
+    if (batch.status !== "AT_GATE" && batch.status !== "ORDERED") {
+      return NextResponse.json(
+        { error: `Batch is in ${batch.status} status. Only batches that are AT_GATE or ORDERED can be received.` },
+        { status: 400 }
+      )
+    }
+
+    // Check for duplicate entry
+    const existingEntry = await prisma.warehouseEntry.findFirst({
+      where: {
+        batchId: batch.id,
+        entryType: entryTypeValue,
+      },
+    })
+
+    if (existingEntry && !batch.isDuplicateEntry) {
+      // Mark as duplicate and notify CEO and Admin
+      await prisma.batch.update({
+        where: { id: batch.id },
+        data: { isDuplicateEntry: true },
+      })
+
+      await notifyDuplicateEntry({
+        batchId: batch.id,
+        batchNumber: batch.batchNumber,
+        submittedBy: user.id,
+      })
+
+      return NextResponse.json(
+        { error: "Duplicate entry detected. Approval required from CEO or Admin." },
+        { status: 409 }
+      )
+    }
+
+    // Update jute bag inventory if applicable
+    if (measurementType === MeasurementType.JUTE_BAG && juteBagSize && juteBagCount) {
+      const juteBagInventory = await prisma.juteBagInventory.findUnique({
+        where: { size: juteBagSize },
+      })
+
+      if (juteBagInventory) {
+        const newQuantity = juteBagInventory.quantity - Number(juteBagCount)
+        await prisma.juteBagInventory.update({
+          where: { size: juteBagSize },
+          data: { quantity: newQuantity },
+        })
+
+        // Check for low stock
+        if (newQuantity <= juteBagInventory.lowStockAlert) {
+          await notifyLowJuteBagStock({
+            size: juteBagSize,
+            currentQuantity: newQuantity,
+            threshold: juteBagInventory.lowStockAlert,
+          })
+        }
+      }
     }
 
     // Create warehouse entry
     const warehouseEntry = await prisma.warehouseEntry.create({
       data: {
         batchId: batch.id,
-        warehouseNumber: `WH-${Date.now()}`,
+        warehouseNumber: generateId("WHE"),
         entryType: entryTypeValue,
         storageLocations: normalizedLocations,
-        arrivalWeightKg: parsedWeight,
+        arrivalWeightKg: calculatedWeight,
+        measurementType: measurementType,
+        juteBagSize: juteBagSize || null,
+        juteBagCount: juteBagCount ? Number(juteBagCount) : null,
+        feresulaBags: feresulaBags ? Number(feresulaBags) : null,
         bags: parsedBags,
         notes: notes || null,
         receivedBy: user.id,
@@ -101,7 +188,7 @@ export async function POST(request: NextRequest) {
 
     let newStatus: BatchStatus | undefined
     if (entryTypeValue === WarehouseEntryType.ARRIVAL) {
-      newStatus = BatchStatus.AT_WAREHOUSE
+      newStatus = BatchStatus.STORED
     } else if (entryTypeValue === WarehouseEntryType.REJECT) {
       newStatus = BatchStatus.REJECTED
     } else if (entryTypeValue === WarehouseEntryType.EXPORT) {
@@ -113,8 +200,20 @@ export async function POST(request: NextRequest) {
       data: {
         ...(newStatus ? { status: newStatus } : {}),
         currentLocation: normalizedLocations.join(", "),
+        warehouseEntryDate: entryTypeValue === WarehouseEntryType.ARRIVAL ? new Date() : batch.warehouseEntryDate,
+        currentQuantityKg: calculatedWeight,
       },
     })
+
+    // Notify quality team that batch is ready for inspection
+    if (entryTypeValue === WarehouseEntryType.ARRIVAL) {
+      await notifyBatchReady({
+        batchId: batch.id,
+        batchNumber: batch.batchNumber,
+        nextRole: Role.QUALITY,
+        stepName: "Quality Inspection",
+      })
+    }
 
     // Create audit log
     await prisma.auditLog.create({
@@ -126,7 +225,7 @@ export async function POST(request: NextRequest) {
         changes: JSON.stringify({
           entryType: entryTypeValue,
           storageLocations: normalizedLocations,
-          receivedWeight: parsedWeight,
+          receivedWeight: calculatedWeight,
           bags: parsedBags,
           notes,
         }),
@@ -136,8 +235,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, warehouseEntry }, { status: 201 })
   } catch (error) {
     console.error("Failed to receive batch:", error)
+    const errorMessage = error instanceof Error ? error.message : "Failed to receive batch"
+    console.error("Error details:", errorMessage)
     return NextResponse.json(
-      { error: "Failed to receive batch" },
+      { error: errorMessage },
       { status: 500 }
     )
   }

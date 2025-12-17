@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     csv += "PURCHASE TRANSACTIONS\n"
     csv += "Date,Batch Number,Supplier,Origin,Quantity (kg),Cost (ETB),Status\n"
     batches.forEach(batch => {
-      csv += `${new Date(batch.createdAt).toLocaleDateString()},${batch.batchNumber},${batch.supplier.name},${batch.origin},${batch.purchasedQuantityKg},${batch.purchaseCost.toFixed(2)},${batch.status}\n`
+      csv += `${new Date(batch.createdAt).toLocaleDateString()},${batch.batchNumber},${batch.supplier?.name || 'Unknown'},${batch.origin},${batch.purchasedQuantityKg},${batch.purchaseCost.toFixed(2)},${batch.status}\n`
     })
     
     csv += "\nCONTRACTS\n"
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       const locations = entry.storageLocations && entry.storageLocations.length > 0
         ? entry.storageLocations.join(" | ")
         : "N/A"
-      csv += `${new Date(entry.arrivalTimestamp).toLocaleDateString()},${entry.warehouseNumber},${entry.batch.batchNumber},${entry.batch.supplier.name},${entry.arrivalWeightKg},${entry.batch.purchaseCost.toFixed(2)},${locations}\n`
+      csv += `${new Date(entry.arrivalTimestamp).toLocaleDateString()},${entry.warehouseNumber},${entry.batch.batchNumber},${entry.batch.supplier?.name || 'Unknown'},${entry.arrivalWeightKg},${entry.batch.purchaseCost.toFixed(2)},${locations}\n`
     })
 
     // Return CSV file

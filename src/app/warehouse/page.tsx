@@ -142,7 +142,7 @@ export default async function WarehousePage() {
                     <tr key={entry.id} className="border-b">
                       <td className="px-4 py-3 font-medium">{entry.warehouseNumber}</td>
                       <td className="px-4 py-3">{entry.batch.batchNumber}</td>
-                      <td className="px-4 py-3">{entry.batch.supplier.name}</td>
+                      <td className="px-4 py-3">{entry.batch.supplier?.name || 'Unknown'}</td>
                       <td className="px-4 py-3">
                         <span className="px-2 py-1 rounded bg-muted text-xs font-semibold uppercase tracking-wide">
                           {entry.entryType}
@@ -197,7 +197,7 @@ export default async function WarehousePage() {
                   {recentWeighingRecords.map((record) => (
                     <tr key={record.id} className="border-b">
                       <td className="px-4 py-3 font-medium">{record.batch.batchNumber}</td>
-                      <td className="px-4 py-3">{record.batch.supplier.name}</td>
+                      <td className="px-4 py-3">{record.batch.supplier?.name || 'Unknown'}</td>
                       <td className="px-4 py-3">{record.vehiclePlate}</td>
                       <td className="px-4 py-3 font-semibold">
                         {record.netWeight ? record.netWeight.toFixed(2) : "N/A"}

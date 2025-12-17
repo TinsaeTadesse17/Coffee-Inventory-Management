@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { requireRoles } from "@/lib/auth-helpers"
+import { auth } from "@/lib/auth"
 import { PaymentMethod, Role } from "@prisma/client"
+import { notifyApprovalRequest } from "@/lib/notification-service"
+import { generateId } from "@/lib/utils"
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireRoles([Role.EXPORT_MANAGER, Role.ADMIN])
+    const session = await auth()
+    
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const user = session.user
+    if (user.role !== Role.EXPORT_MANAGER && user.role !== Role.ADMIN && user.role !== Role.CEO) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
     const data = await request.json()
 
@@ -57,7 +68,7 @@ export async function POST(request: NextRequest) {
     // Create contract (pending CEO approval)
     const contract = await prisma.contract.create({
       data: {
-        contractNumber: `CNT-${Date.now()}`,
+        contractNumber: generateId("CON"),
         buyer: buyerName,
         buyerEmail: buyerEmail || null,
         destinationCountry,
@@ -84,11 +95,21 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Notify CEO that contract needs approval
+    const { notifyByRole } = await import("@/lib/notification-service")
+    await notifyByRole({
+      role: Role.CEO,
+      type: "APPROVAL_REQUEST",
+      title: "Contract Approval Requested",
+      message: `Contract ${contract.contractNumber} for ${buyerName} (${parsedQuantity}kg) requires your approval`,
+      link: `/export?contractId=${contract.id}`,
+    })
+
     return NextResponse.json({ success: true, contract }, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to create contract:", error)
     return NextResponse.json(
-      { error: "Failed to create contract" },
+      { error: error.message || "Failed to create contract" },
       { status: 500 }
     )
   }
