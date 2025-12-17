@@ -105,7 +105,7 @@ function PurchasingDashboard({ data }: { data: DashboardData }) {
                 <div key={b.id} className="flex justify-between items-center p-2 border rounded">
                   <div>
                     <p className="font-medium">{b.batchNumber}</p>
-                    <p className="text-xs text-muted-foreground">{b.supplier.name} • {b.origin}</p>
+                    <p className="text-xs text-muted-foreground">{b.supplier?.name || 'Unknown Supplier'} • {b.origin}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-bold">{formatWeight(b.purchasedQuantityKg)}</p>
