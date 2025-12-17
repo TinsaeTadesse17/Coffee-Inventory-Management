@@ -6,11 +6,6 @@ import { Role } from "@prisma/client"
 import { generateId } from "@/lib/utils"
 import { getSettings } from "@/lib/settings"
 
-import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
-import { generateId } from "@/lib/utils"
-
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
@@ -49,6 +44,16 @@ export async function POST(request: NextRequest) {
         batchNumber: generateId("BTH"),
         supplierId: supplier.id,
         origin: data.origin,
+        purchaseDate: new Date(),
+        purchasedQuantityKg: Number(data.quantity),
+        currentQuantityKg: Number(data.quantity),
+        purchaseCost: Number(data.pricePerKg) * Number(data.quantity),
+        status: "ORDERED",
+        processingType: data.processType || "NATURAL",
+        grade: data.grade,
+        exchangeRateAtPurchase: settings?.exchangeRate || 120,
+      }
+    });
 
     // Create audit log
     try {

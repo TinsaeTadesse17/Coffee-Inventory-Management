@@ -5,11 +5,6 @@ import { notifyProcessingComplete, notifyLowJuteBagStock } from "@/lib/notificat
 import { generateId } from "@/lib/utils"
 import { Role } from "@prisma/client"
 
-import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { auth } from "@/lib/auth"
-import { generateId } from "@/lib/utils"
-
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
@@ -188,6 +183,25 @@ export async function POST(request: NextRequest) {
         runNumber: generateId("RUN"),
         startTime: new Date(),
         endTime: new Date(),
+        status: "COMPLETED",
+        processingGrade: processingGrade,
+        exportQuantity: exportQuantity,
+        rejectQuantity: rejectQuantity,
+        wasteQuantity: wasteQuantity,
+        yieldRatio: yieldRatio,
+        processedBy: session.user.id,
+        notes: `Processing completed. Type: ${processType}`,
+        inputs: {
+          create: validatedBatches.map(vb => ({
+            batchId: vb.batch.id,
+            weightUsed: vb.weight
+          }))
+        },
+        inputBatches: {
+          connect: validatedBatches.map(vb => ({ id: vb.batch.id }))
+        }
+      }
+    });
 
     // Update Jute Bag Inventory
     try {
