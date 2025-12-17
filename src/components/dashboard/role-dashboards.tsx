@@ -644,7 +644,7 @@ function AdminDashboard({ data }: { data: DashboardData }) {
                         .toLowerCase()
                         .replace(/\b\w/g, (letter: string) => letter.toUpperCase())}
                     </p>
-                    <p className="text-xs text-muted-foreground">{log.entity} • by {log.user.name}</p>
+                    <p className="text-xs text-muted-foreground">{log.entity} • by {log.user?.name || 'Unknown'}</p>
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}

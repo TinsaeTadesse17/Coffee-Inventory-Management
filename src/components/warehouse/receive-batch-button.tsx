@@ -34,7 +34,10 @@ interface WeighingRecord {
   timestampIn: string
   batch: {
     batchNumber: string
-    supplier: {
+    supplier?: {
+      name: string
+    }
+    thirdPartyEntity?: {
       name: string
     }
   }
@@ -218,7 +221,7 @@ export function ReceiveBatchButton() {
                   <div>
                     <p className="font-medium text-sm">Weighing Record Found</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Batch: {weighingRecord.batch.batchNumber} • {weighingRecord.batch.supplier.name}
+                      Batch: {weighingRecord.batch.batchNumber} • {weighingRecord.batch.supplier?.name || weighingRecord.batch.thirdPartyEntity?.name || 'Unknown'}
                     </p>
                   </div>
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
