@@ -47,7 +47,9 @@ export async function POST(request: NextRequest) {
       data: {
         batchNumber: generateId("EXT"),
         isThirdParty: true,
-        thirdPartyEntityId: entity.id,
+        thirdPartyEntity: {
+          connect: { id: entity.id }
+        },
         origin: data.origin,
         purchaseDate: new Date(),
         purchasedQuantityKg: data.quantityKg,

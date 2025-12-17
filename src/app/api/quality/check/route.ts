@@ -125,9 +125,9 @@ export async function POST(request: NextRequest) {
     // Create QC check
     const qcCheck = await prisma.qualityCheck.create({
       data: {
-        batchId: batch.id,
+        batch: { connect: { id: batch.id } },
         checkpoint,
-        inspectorId: user.id,
+        inspector: { connect: { id: user.id } },
         sessionName,
         sessionDate: sessionDateValue,
         origin: origin || null,

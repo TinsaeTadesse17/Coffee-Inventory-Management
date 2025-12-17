@@ -45,12 +45,12 @@ export async function POST(request: NextRequest) {
     // Create weighing record (store driver name in notes if provided)
     const weighingRecord = await prisma.vehicleWeighingRecord.create({
       data: {
-        batchId: batch.id,
+        batch: { connect: { id: batch.id } },
         vehiclePlate: data.vehiclePlate,
         grossWeightIn: grossWeight,
         tareWeight: tareWeight,
         netWeight: netWeight,
-        recordedBy: session.user.id,
+        recordedByUser: { connect: { id: session.user.id } },
         notes: driverName ? `Driver: ${driverName}` : undefined,
       },
     })

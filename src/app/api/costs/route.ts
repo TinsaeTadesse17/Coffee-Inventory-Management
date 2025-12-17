@@ -30,8 +30,8 @@ export async function POST(request: NextRequest) {
         costType,
         description,
         amount: parseFloat(amount),
-        batchId: batchId || null,
-        recordedBy: session.user.id,
+        batch: batchId ? { connect: { id: batchId } } : undefined,
+        recordedByUser: { connect: { id: session.user.id } },
       },
     })
 

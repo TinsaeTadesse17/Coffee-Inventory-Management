@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
     // Create warehouse entry
     const warehouseEntry = await prisma.warehouseEntry.create({
       data: {
-        batchId: batch.id,
+        batch: { connect: { id: batch.id } },
         warehouseNumber: generateId("WHE"),
         entryType: entryTypeValue,
         storageLocations: normalizedLocations,
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
         feresulaBags: feresulaBags ? Number(feresulaBags) : null,
         bags: parsedBags,
         notes: notes || null,
-        receivedBy: user.id,
+        receivedByUser: { connect: { id: user.id } },
       },
     })
 

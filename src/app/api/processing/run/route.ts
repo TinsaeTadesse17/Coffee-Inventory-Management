@@ -79,12 +79,12 @@ export async function POST(request: NextRequest) {
         data: {
           runNumber: generateId("RUN"),
           startTime: new Date(),
-          processedBy: session.user.id,
+          processedByUser: { connect: { id: session.user.id } },
           notes: `Processing started. Type: ${processType}`,
           // Create ProcessingRunInput records
           inputs: {
             create: validatedBatches.map(vb => ({
-              batchId: vb.batch.id,
+              batch: { connect: { id: vb.batch.id } },
               weightUsed: vb.weight
             }))
           },
@@ -189,11 +189,11 @@ export async function POST(request: NextRequest) {
         rejectQuantity: rejectQuantity,
         wasteQuantity: wasteQuantity,
         yieldRatio: yieldRatio,
-        processedBy: session.user.id,
+        processedByUser: { connect: { id: session.user.id } },
         notes: `Processing completed. Type: ${processType}`,
         inputs: {
           create: validatedBatches.map(vb => ({
-            batchId: vb.batch.id,
+            batch: { connect: { id: vb.batch.id } },
             weightUsed: vb.weight
           }))
         },
