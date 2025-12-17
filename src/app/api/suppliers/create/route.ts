@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     const settings = await getSettings()
 
         // Validate input data
-    const quantity = Number(data.quantity)
+    const quantity = Number(data.quantityKg || data.quantity)
     const pricePerKg = Number(data.pricePerKg)
 
     if (isNaN(quantity) || quantity <= 0) {
