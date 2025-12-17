@@ -42,18 +42,22 @@ export async function POST(request: NextRequest) {
     })
     const nextQueue = (maxQueue._max.queuePosition || 0) + 1
 
+    // Validate input data
+    const quantityKg = Number(data.quantityKg)
+    if (isNaN(quantityKg) || quantityKg <= 0) {
+      return NextResponse.json({ error: "Invalid quantity" }, { status: 400 })
+    }
+
     // Create batch
     const batch = await prisma.batch.create({
       data: {
         batchNumber: generateId("EXT"),
         isThirdParty: true,
-        thirdPartyEntity: {
-          connect: { id: entity.id }
-        },
+        thirdPartyEntityId: entity.id,
         origin: data.origin,
         purchaseDate: new Date(),
-        purchasedQuantityKg: data.quantityKg,
-        currentQuantityKg: data.quantityKg,
+        purchasedQuantityKg: quantityKg,
+        currentQuantityKg: quantityKg,
         purchaseCost: 0, // No purchase cost for third party
         purchaseCurrency: "ETB",
         status: "ORDERED", // Starts flow here

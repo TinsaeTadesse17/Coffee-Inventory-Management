@@ -38,18 +38,28 @@ export async function POST(request: NextRequest) {
     // Get current exchange rate
     const settings = await getSettings()
 
-        // Create batch with purchase order
+        // Validate input data
+    const quantity = Number(data.quantity)
+    const pricePerKg = Number(data.pricePerKg)
+
+    if (isNaN(quantity) || quantity <= 0) {
+      return NextResponse.json({ error: "Invalid quantity" }, { status: 400 })
+    }
+
+    if (isNaN(pricePerKg) || pricePerKg < 0) {
+      return NextResponse.json({ error: "Invalid price" }, { status: 400 })
+    }
+
+    // Create batch with purchase order
     const batch = await prisma.batch.create({
       data: {
         batchNumber: generateId("BTH"),
-        supplier: {
-          connect: { id: supplier.id }
-        },
+        supplierId: supplier.id,
         origin: data.origin,
         purchaseDate: new Date(),
-        purchasedQuantityKg: Number(data.quantity),
-        currentQuantityKg: Number(data.quantity),
-        purchaseCost: Number(data.pricePerKg) * Number(data.quantity),
+        purchasedQuantityKg: quantity,
+        currentQuantityKg: quantity,
+        purchaseCost: pricePerKg * quantity,
         status: "ORDERED",
         processingType: data.processType || "NATURAL",
         grade: data.grade,
