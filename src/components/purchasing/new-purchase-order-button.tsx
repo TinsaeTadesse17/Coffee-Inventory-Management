@@ -31,6 +31,7 @@ export function NewPurchaseOrderButton() {
       const formData = new FormData(e.currentTarget)
       const data = {
         supplierName: formData.get("supplierName"),
+        quantity: parseFloat(quantityKg), // For backward compatibility
         quantityKg: parseFloat(quantityKg),
         pricePerKg: parseFloat(formData.get("pricePerKg") as string),
         origin: formData.get("origin"),
