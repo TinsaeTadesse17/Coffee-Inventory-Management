@@ -42,7 +42,9 @@ export async function POST(request: NextRequest) {
     const batch = await prisma.batch.create({
       data: {
         batchNumber: generateId("BTH"),
-        supplierId: supplier.id,
+        supplier: {
+          connect: { id: supplier.id }
+        },
         origin: data.origin,
         purchaseDate: new Date(),
         purchasedQuantityKg: Number(data.quantity),
