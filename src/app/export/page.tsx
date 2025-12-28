@@ -7,16 +7,24 @@ import { format, formatDistanceToNow } from "date-fns"
 export default async function ExportPage() {
   const user = await requireRoles(["EXPORT_MANAGER", "CEO", "ADMIN"])
 
-  // Fetch recent contracts
+  // Fetch recent contracts - optimized with selective fields
   const recentContracts = await prisma.contract.findMany({
     include: {
-      creator: true,
-      approver: true,
+      creator: {
+        select: {
+          name: true
+        }
+      },
+      approver: {
+        select: {
+          name: true
+        }
+      },
     },
     orderBy: {
       createdAt: "desc",
     },
-    take: 20,
+    take: 50, // Increased limit
   })
 
   // Calculate stats

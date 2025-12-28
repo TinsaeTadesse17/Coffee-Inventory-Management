@@ -12,24 +12,41 @@ import { getSettings } from "@/lib/settings"
 export default async function FinancePage() {
   const user = await requireRoles(["FINANCE", "CEO", "ADMIN"])
 
-  // Fetch real financial data
+  // Fetch real financial data - optimized with limits and selective fields
   const [batches, contracts, processingRuns, suppliers, warehouseEntries, additionalCosts, settings, processingCosts, storageCosts] = await Promise.all([
     prisma.batch.findMany({
       include: { supplier: true },
       orderBy: { createdAt: "desc" },
+      take: 500, // Limit to recent batches
     }),
     prisma.contract.findMany({
-      include: { creator: true },
+      include: { 
+        creator: {
+          select: { name: true }
+        }
+      },
       orderBy: { createdAt: "desc" },
+      take: 200, // Limit contracts
     }),
     prisma.processingRun.findMany({
       orderBy: { startTime: "desc" },
+      take: 100, // Limit processing runs
     }),
-    prisma.supplier.findMany(),
+    prisma.supplier.findMany({
+      select: {
+        id: true,
+        name: true,
+        origin: true
+      }
+    }),
     prisma.warehouseEntry.findMany({
       include: {
         batch: {
-          include: { supplier: true }
+          include: { 
+            supplier: {
+              select: { name: true }
+            }
+          }
         }
       },
       orderBy: { arrivalTimestamp: "desc" },
@@ -37,18 +54,24 @@ export default async function FinancePage() {
     }),
     prisma.additionalCost.findMany({
       include: {
-        recordedByUser: true,
-        batch: true
+        recordedByUser: {
+          select: { name: true }
+        },
+        batch: {
+          select: { batchNumber: true }
+        }
       },
       orderBy: { createdAt: "desc" },
       take: 50
     }),
     getSettings(),
     prisma.processingCost.findMany({
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      take: 100
     }),
     prisma.storageCost.findMany({
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      take: 100
     })
   ])
 

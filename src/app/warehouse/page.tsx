@@ -22,12 +22,17 @@ export default async function WarehousePage() {
     take: 20,
   })
 
-  // Fetch recent weighing records - show all recent ones
+  // Fetch recent weighing records - optimized with selective fields
   const allWeighingRecords = await prisma.vehicleWeighingRecord.findMany({
     include: {
       batch: {
-        include: {
-          supplier: true,
+        select: {
+          batchNumber: true,
+          supplier: {
+            select: {
+              name: true
+            }
+          },
           warehouseEntries: {
             select: {
               id: true,
@@ -44,7 +49,7 @@ export default async function WarehousePage() {
     orderBy: {
       timestampIn: "desc",
     },
-    take: 50,
+    take: 30, // Reduced limit
   })
 
   // Show all recent weighing records, but prioritize those that haven't been received

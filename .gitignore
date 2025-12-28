@@ -46,3 +46,6 @@ next-env.d.ts
 
 # prisma
 /prisma/migrations/migration_lock.toml
+
+ignored_app_backup/
+ignored_src_backup/

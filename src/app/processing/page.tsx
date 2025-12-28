@@ -11,21 +11,40 @@ import { formatNumber, formatWeight } from "@/lib/format-utils"
 export default async function ProcessingPage() {
   const user = await requireRoles(["PLANT_MANAGER", "CEO", "ADMIN"])
 
-  // Fetch recent processing runs
+  // Fetch recent processing runs - optimized with selective fields
   const recentRuns = await prisma.processingRun.findMany({
     include: {
       inputs: {
         include: {
-          batch: true
+          batch: {
+            select: {
+              id: true,
+              batchNumber: true
+            }
+          }
         }
       },
       inputBatches: {
-        include: {
-          supplier: true,
-          thirdPartyEntity: true,
+        select: {
+          id: true,
+          batchNumber: true,
+          supplier: {
+            select: {
+              name: true
+            }
+          },
+          thirdPartyEntity: {
+            select: {
+              name: true
+            }
+          },
         },
       },
-      processedByUser: true,
+      processedByUser: {
+        select: {
+          name: true
+        }
+      },
     },
     orderBy: {
       startTime: "desc",

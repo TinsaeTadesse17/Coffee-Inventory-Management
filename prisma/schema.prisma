@@ -35,8 +35,49 @@ model User {
   warehouseEntries   WarehouseEntry[]
   notifications      Notification[]
   additionalCosts    AdditionalCost[]
+  sessions           Session[]
+  accounts           Account[]
 
+  @@index([role])
+  @@index([active])
+  @@index([createdAt])
   @@map("users")
+}
+
+// NextAuth Account model for OAuth providers
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// Session tracking for active users
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expires])
+  @@map("sessions")
 }
 
 enum Role {
@@ -117,6 +158,11 @@ model Batch {
   pssRecords            PSSRecord[]
   additionalCosts       AdditionalCost[]
 
+  @@index([supplierId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([isThirdParty])
+  @@index([warehouseEntryDate])
   @@map("batches")
 }
 
@@ -167,6 +213,8 @@ model VehicleWeighingRecord {
   batch      Batch @relation(fields: [batchId], references: [id])
   recordedByUser User @relation(fields: [recordedBy], references: [id])
 
+  @@index([batchId])
+  @@index([timestampIn])
   @@map("vehicle_weighing_records")
 }
 
@@ -195,6 +243,8 @@ model WarehouseEntry {
   batch          Batch @relation(fields: [batchId], references: [id])
   receivedByUser User  @relation(fields: [receivedBy], references: [id])
 
+  @@index([batchId])
+  @@index([arrivalTimestamp])
   @@map("warehouse_entries")
 }
 
@@ -249,6 +299,8 @@ model QualityCheck {
   batch     Batch @relation(fields: [batchId], references: [id])
   inspector User  @relation(fields: [inspectorId], references: [id])
 
+  @@index([batchId])
+  @@index([timestamp])
   @@map("quality_checks")
 }
 
@@ -326,6 +378,8 @@ model ProcessingRun {
   processedByUser User  @relation(fields: [processedBy], references: [id])
   costs         ProcessingCost[]
 
+  @@index([startTime])
+  @@index([status])
   @@map("processing_runs")
 }
 
@@ -369,6 +423,8 @@ model Contract {
   approver       User?      @relation("ContractApprover", fields: [ceoApprovedBy], references: [id])
   creator        User       @relation("ContractCreator", fields: [createdBy], references: [id])
 
+  @@index([approvalStatus])
+  @@index([createdAt])
   @@map("contracts")
 }
 
@@ -571,6 +627,8 @@ model AdditionalCost {
   batch          Batch? @relation(fields: [batchId], references: [id])
   recordedByUser User   @relation(fields: [recordedBy], references: [id])
 
+  @@index([recordedAt])
+  @@index([createdAt])
   @@map("additional_costs")
 }
 
@@ -587,6 +645,7 @@ model ProcessingCost {
   // Relations
   processingRun ProcessingRun @relation(fields: [processingRunId], references: [id])
 
+  @@index([createdAt])
   @@map("processing_costs")
 }
 
@@ -603,6 +662,7 @@ model StorageCost {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@index([createdAt])
   @@map("storage_costs")
 }
 
@@ -623,6 +683,9 @@ model AuditLog {
   // Relations
   user User @relation(fields: [userId], references: [id])
 
+  @@index([userId])
+  @@index([timestamp])
+  @@index([entity, action])
   @@map("audit_logs")
 }
 

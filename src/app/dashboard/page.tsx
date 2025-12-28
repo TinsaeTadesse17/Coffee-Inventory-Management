@@ -6,7 +6,7 @@ import { getSettings } from "@/lib/settings"
 export default async function DashboardPage() {
   const user = await requireAuth()
 
-  // Fetch data based on role
+  // Optimized data fetching - only load what's necessary with limits and selective fields
   const [
     batches,
     warehouseEntries,
@@ -22,21 +22,33 @@ export default async function DashboardPage() {
     storageCosts
   ] = await Promise.all([
     prisma.batch.findMany({
+      take: 100,
       include: { supplier: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.warehouseEntry.findMany({
+      take: 100,
       include: { batch: true },
       orderBy: { arrivalTimestamp: "desc" },
     }),
     prisma.qualityCheck.findMany({
+      take: 50,
       orderBy: { timestamp: "desc" },
     }),
     prisma.processingRun.findMany({
-      include: { inputBatches: true, outputBatches: true },
+      take: 50,
+      include: { 
+        inputBatches: {
+          take: 10
+        }, 
+        outputBatches: {
+          take: 10
+        }
+      },
       orderBy: { startTime: "desc" },
     }),
     prisma.contract.findMany({
+      take: 50,
       orderBy: { createdAt: "desc" },
     }),
     prisma.warehouseEntry.findMany({
@@ -47,11 +59,18 @@ export default async function DashboardPage() {
       }
     }),
     prisma.auditLog.findMany({
-      include: { user: true },
+      include: { 
+        user: {
+          select: {
+            name: true
+          }
+        }
+      },
       orderBy: { timestamp: "desc" },
       take: 10,
     }),
     prisma.vehicleWeighingRecord.findMany({
+      take: 50,
       include: {
         batch: {
           include: {
@@ -62,13 +81,16 @@ export default async function DashboardPage() {
       orderBy: { timestampIn: "desc" },
     }),
     prisma.additionalCost.findMany({
+      take: 50,
       orderBy: { recordedAt: "desc" },
     }),
     getSettings(),
     prisma.processingCost.findMany({
+      take: 50,
       orderBy: { createdAt: "desc" }
     }),
     prisma.storageCost.findMany({
+      take: 50,
       orderBy: { createdAt: "desc" }
     })
   ])

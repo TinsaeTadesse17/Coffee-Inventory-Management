@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { notifyProcessingComplete, notifyLowJuteBagStock } from "@/lib/notification-service"
 import { generateId } from "@/lib/utils"
-import { Role } from "@prisma/client"
+import { Role, Batch } from "@prisma/client"
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate all batches
-    const validatedBatches = [];
+    const validatedBatches: { batch: Batch; weight: number }[] = [];
     for (const input of processingInputs) {
       const batch = await prisma.batch.findFirst({
         where: { 

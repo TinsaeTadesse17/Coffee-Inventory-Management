@@ -1,13 +1,11 @@
 import NextAuth from "next-auth"
 import type { NextAuthConfig } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "./prisma"
 import bcrypt from "bcryptjs"
 import { Role } from "@prisma/client"
 
 export const authConfig: NextAuthConfig = {
-  adapter: PrismaAdapter(prisma) as any,
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -62,6 +60,19 @@ export const authConfig: NextAuthConfig = {
         token.email = user.email
         token.name = user.name
         token.role = (user as any).role
+        
+        // Track login in audit log for session tracking
+        if (user.id) {
+          await prisma.auditLog.create({
+            data: {
+              userId: user.id,
+              entity: "Session",
+              entityId: user.id,
+              action: "LOGIN",
+              changes: JSON.stringify({ email: user.email })
+            }
+          }).catch(() => {}) // Silently fail if audit log fails
+        }
       }
       return token
     },

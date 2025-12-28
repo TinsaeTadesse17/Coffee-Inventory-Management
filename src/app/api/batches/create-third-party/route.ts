@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { generateId } from "@/lib/utils"
-import { Role } from "@prisma/client"
+// import { Role } from "@prisma/client"
 import { notifyBatchReady } from "@/lib/notification-service"
 
 export async function POST(request: NextRequest) {
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       await notifyBatchReady({
         batchId: batch.id,
         batchNumber: batch.batchNumber,
-        nextRole: Role.SECURITY,
+        nextRole: "SECURITY" as any,
         stepName: "Weighing at Gate (Third Party)",
       })
     } catch (notifyError) {

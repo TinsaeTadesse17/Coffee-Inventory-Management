@@ -133,15 +133,15 @@ export async function createNotification(params: {
 
     if (user?.email) {
       const emailBody = `
-        <html>
-          <body style="font-family: Arial, sans-serif; padding: 20px;">
+        <div>
+          <div style="font-family: Arial, sans-serif; padding: 20px;">
             <h2 style="color: #2c3e50;">Eset Coffee - ${title}</h2>
             <p>${message}</p>
             ${link ? `<p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${link}" style="background-color: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">View Details</a></p>` : ''}
             <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
             <p style="color: #7f8c8d; font-size: 12px;">This is an automated notification from Eset Coffee Dashboard. Please do not reply to this email.</p>
-          </body>
-        </html>
+          </div>
+        </div>
       `;
 
       await sendEmail(user.email, `Eset Coffee - ${title}`, emailBody);
@@ -357,6 +357,8 @@ export async function getUserNotifications(userId: string, limit: number = 50) {
     take: limit,
   });
 }
+
+
 
 
 

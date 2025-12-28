@@ -8,6 +8,30 @@ import Link from "next/link"
 export default async function AdminPage() {
   await requireRoles(["ADMIN"])
 
+  // Count active sessions by counting unique users who logged in within last 30 days
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  
+  const recentLogins = await prisma.auditLog.findMany({
+    where: {
+      action: "LOGIN",
+      timestamp: {
+        gte: thirtyDaysAgo
+      }
+    },
+    select: {
+      userId: true,
+      timestamp: true
+    },
+    orderBy: {
+      timestamp: 'desc'
+    }
+  })
+
+  // Get unique users from recent logins (approximate active sessions)
+  const uniqueActiveUsers = new Set(recentLogins.map(log => log.userId))
+  const activeSessions = uniqueActiveUsers.size
+
   const [userCount, logCount] = await Promise.all([
     prisma.user.count(),
     prisma.auditLog.count()
@@ -35,7 +59,7 @@ export default async function AdminPage() {
             <CardTitle className="text-sm font-medium">Active Sessions</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">—</div>
+            <div className="text-2xl font-bold text-green-600">{activeSessions}</div>
             <p className="text-xs text-muted-foreground">Currently logged in</p>
           </CardContent>
         </Card>

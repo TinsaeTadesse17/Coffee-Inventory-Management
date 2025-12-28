@@ -22,7 +22,7 @@ export function Sidebar() {
             <li>
               <ul role="list" className="-mx-2 space-y-1">
                 {navigation.map((item) => {
-                  const isActive = pathname.startsWith(item.href)
+                  const isActive = pathname?.startsWith(item.href) ?? false
                   return (
                     <li key={item.name}>
                       <Link
