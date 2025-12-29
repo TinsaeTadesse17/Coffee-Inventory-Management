@@ -1,8 +1,9 @@
 import { requireRoles } from "@/lib/auth-helpers"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { NewQCCheckButton } from "@/components/quality/new-qc-check-button"
+import { QualityChecksClient } from "@/components/quality/quality-checks-client"
 import { prisma } from "@/lib/prisma"
-import { format, formatDistanceToNow } from "date-fns"
+import { formatDistanceToNow } from "date-fns"
 
 export default async function QualityPage() {
   const user = await requireRoles(["QUALITY", "CEO", "ADMIN"])
@@ -81,54 +82,7 @@ export default async function QualityPage() {
               No quality checks yet. Record your first QC check.
             </div>
           ) : (
-            <div className="relative overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs uppercase bg-muted">
-                  <tr>
-                    <th className="px-4 py-3">Batch</th>
-                    <th className="px-4 py-3">Checkpoint</th>
-                    <th className="px-4 py-3">Session</th>
-                    <th className="px-4 py-3">Origin</th>
-                    <th className="px-4 py-3">Roast</th>
-                    <th className="px-4 py-3">Fragrance</th>
-                    <th className="px-4 py-3">Flavor</th>
-                    <th className="px-4 py-3">Acidity</th>
-                    <th className="px-4 py-3">Body</th>
-                    <th className="px-4 py-3">Total</th>
-                    <th className="px-4 py-3">Inspector</th>
-                    <th className="px-4 py-3">Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentChecks.map((check) => (
-                    <tr key={check.id} className="border-b">
-                      <td className="px-4 py-3 font-medium">
-                        <div>{check.batch.batchNumber}</div>
-                        <p className="text-xs text-muted-foreground">{check.batch.supplier?.name || 'Unknown'}</p>
-                      </td>
-                      <td className="px-4 py-3">{check.checkpoint}</td>
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{check.sessionName}</div>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(check.sessionDate), "PP")}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">{check.origin || "-"}</td>
-                      <td className="px-4 py-3">{check.roastProfile || "-"}</td>
-                      <td className="px-4 py-3">{check.fragranceScore?.toFixed(1) || "-"}</td>
-                      <td className="px-4 py-3">{check.flavorScore?.toFixed(1) || "-"}</td>
-                      <td className="px-4 py-3">{check.acidityScore?.toFixed(1) || "-"}</td>
-                      <td className="px-4 py-3">{check.bodyScore?.toFixed(1) || "-"}</td>
-                      <td className="px-4 py-3 font-semibold">{check.totalScore?.toFixed(2) || "-"}</td>
-                      <td className="px-4 py-3">{check.inspector.name}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {formatDistanceToNow(new Date(check.timestamp), { addSuffix: true })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <QualityChecksClient initialChecks={recentChecks} />
           )}
         </CardContent>
       </Card>

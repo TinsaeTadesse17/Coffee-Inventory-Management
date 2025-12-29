@@ -370,3 +370,4 @@ This has been fixed by adding `currentQuantityKg` to the batch creation in the p
 
 
 
+

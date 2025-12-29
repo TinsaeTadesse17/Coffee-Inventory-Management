@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Plus, ArrowLeft } from "lucide-react"
+import { UserManagementClient } from "@/components/admin/user-management-client"
 
 export default async function UsersPage() {
   await requireRoles(["ADMIN"])
@@ -49,30 +50,7 @@ export default async function UsersPage() {
         </Link>
       </div>
 
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user: any) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.name}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>{user.role}</TableCell>
-                <TableCell>{user.active ? 'Active' : 'Inactive'}</TableCell>
-                <TableCell>{user.createdAt.toLocaleDateString()}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <UserManagementClient users={users} />
     </div>
   )
 }

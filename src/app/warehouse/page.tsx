@@ -1,6 +1,7 @@
 import { requireRoles } from "@/lib/auth-helpers"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ReceiveBatchButton } from "@/components/warehouse/receive-batch-button"
+import { WarehouseEntriesClient } from "@/components/warehouse/warehouse-entries-client"
 import { prisma } from "@/lib/prisma"
 import { formatDistanceToNow } from "date-fns"
 
@@ -126,50 +127,7 @@ export default async function WarehousePage() {
               No warehouse entries yet. Receive a batch to get started.
             </div>
           ) : (
-            <div className="relative overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs uppercase bg-muted">
-                  <tr>
-                    <th className="px-4 py-3">Warehouse #</th>
-                    <th className="px-4 py-3">Batch</th>
-                    <th className="px-4 py-3">Supplier</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Locations</th>
-                    <th className="px-4 py-3">Weight (kg)</th>
-                    <th className="px-4 py-3">Bags</th>
-                    <th className="px-4 py-3">Moisture %</th>
-                    <th className="px-4 py-3">Temp °C</th>
-                    <th className="px-4 py-3">Recorded</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentEntries.map((entry) => (
-                    <tr key={entry.id} className="border-b">
-                      <td className="px-4 py-3 font-medium">{entry.warehouseNumber}</td>
-                      <td className="px-4 py-3">{entry.batch.batchNumber}</td>
-                      <td className="px-4 py-3">{entry.batch.supplier?.name || 'Unknown'}</td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-1 rounded bg-muted text-xs font-semibold uppercase tracking-wide">
-                          {entry.entryType}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {entry.storageLocations && entry.storageLocations.length > 0
-                          ? entry.storageLocations.join(", ")
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-3 font-semibold">{entry.arrivalWeightKg.toFixed(2)}</td>
-                      <td className="px-4 py-3">{entry.bags ?? "-"}</td>
-                      <td className="px-4 py-3">{entry.moisturePercent?.toFixed(1) || '-'}</td>
-                      <td className="px-4 py-3">{entry.temperatureCelsius?.toFixed(1) || '-'}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {formatDistanceToNow(new Date(entry.arrivalTimestamp), { addSuffix: true })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <WarehouseEntriesClient initialEntries={recentEntries} />
           )}
         </CardContent>
       </Card>

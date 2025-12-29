@@ -6,6 +6,7 @@ import { formatDistanceToNow } from "date-fns"
 import { DownloadFinancialReportButton } from "@/components/finance/download-financial-report-button"
 import { DownloadSupplierLedgerButton } from "@/components/finance/download-supplier-ledger-button"
 import { NewAdditionalCostButton } from "@/components/finance/new-additional-cost-button"
+import { AdditionalCostsClient } from "@/components/finance/additional-costs-client"
 import { formatCurrency } from "@/lib/format-utils"
 import { getSettings } from "@/lib/settings"
 
@@ -385,40 +386,7 @@ export default async function FinancePage() {
               No additional costs recorded yet.
             </div>
           ) : (
-            <div className="relative overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs uppercase bg-muted">
-                  <tr>
-                    <th className="px-4 py-3">Date</th>
-                    <th className="px-4 py-3">Type</th>
-                    <th className="px-4 py-3">Description</th>
-                    <th className="px-4 py-3">Amount (ETB)</th>
-                    <th className="px-4 py-3">Related Batch</th>
-                    <th className="px-4 py-3">Recorded By</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {additionalCosts.map((cost) => (
-                    <tr key={cost.id} className="border-b">
-                      <td className="px-4 py-3">
-                        {new Date(cost.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3 font-medium">{cost.costType}</td>
-                      <td className="px-4 py-3">{cost.description}</td>
-                      <td className="px-4 py-3 font-semibold text-red-600">
-                        {formatCurrency(cost.amount)}
-                      </td>
-                      <td className="px-4 py-3">
-                        {cost.batch ? cost.batch.batchNumber : '-'}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        {cost.recordedByUser.name}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <AdditionalCostsClient initialCosts={additionalCosts} />
           )}
         </CardContent>
       </Card>
