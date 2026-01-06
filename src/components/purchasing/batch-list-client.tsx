@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Edit } from "lucide-react"
 import { EditBatchDialog } from "./edit-batch-dialog"
 import { formatDistanceToNow } from "date-fns"
+import { useSession } from "next-auth/react"
 
 interface Batch {
   id: string
@@ -32,6 +33,8 @@ interface BatchListClientProps {
 }
 
 export function BatchListClient({ batches }: BatchListClientProps) {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === "ADMIN"
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
 
@@ -61,7 +64,7 @@ export function BatchListClient({ batches }: BatchListClientProps) {
               <th className="px-4 py-3">Cost (ETB)</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Created</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              {isAdmin && <th className="px-4 py-3 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -92,16 +95,18 @@ export function BatchListClient({ batches }: BatchListClientProps) {
                 <td className="px-4 py-3 text-muted-foreground">
                   {formatDistanceToNow(new Date(batch.createdAt), { addSuffix: true })}
                 </td>
-                <td className="px-4 py-3 text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleEdit(batch)}
-                    title="Edit batch"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </td>
+                {isAdmin && (
+                  <td className="px-4 py-3 text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEdit(batch)}
+                      title="Edit batch"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

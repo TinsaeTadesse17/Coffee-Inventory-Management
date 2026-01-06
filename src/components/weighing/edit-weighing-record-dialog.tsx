@@ -145,3 +145,4 @@ export function EditWeighingRecordDialog({ record, open, onOpenChange, onSuccess
   )
 }
 
+

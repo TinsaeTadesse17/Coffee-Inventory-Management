@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Pencil } from "lucide-react"
 import { EditAdditionalCostDialog } from "./edit-additional-cost-dialog"
 import { formatCurrency } from "@/lib/format-utils"
+import { useSession } from "next-auth/react"
 
 interface AdditionalCost {
   id: string
@@ -25,6 +26,8 @@ interface AdditionalCostsClientProps {
 }
 
 export function AdditionalCostsClient({ initialCosts }: AdditionalCostsClientProps) {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === "ADMIN"
   const [costs, setCosts] = useState(initialCosts)
   const [editingCost, setEditingCost] = useState<AdditionalCost | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -51,7 +54,7 @@ export function AdditionalCostsClient({ initialCosts }: AdditionalCostsClientPro
               <th className="px-4 py-3">Amount (ETB)</th>
               <th className="px-4 py-3">Related Batch</th>
               <th className="px-4 py-3">Recorded By</th>
-              <th className="px-4 py-3">Actions</th>
+              {isAdmin && <th className="px-4 py-3">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -71,15 +74,17 @@ export function AdditionalCostsClient({ initialCosts }: AdditionalCostsClientPro
                 <td className="px-4 py-3 text-muted-foreground">
                   {cost.recordedByUser.name}
                 </td>
-                <td className="px-4 py-3">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleEdit(cost)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </td>
+                {isAdmin && (
+                  <td className="px-4 py-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEdit(cost)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -97,4 +102,5 @@ export function AdditionalCostsClient({ initialCosts }: AdditionalCostsClientPro
     </>
   )
 }
+
 

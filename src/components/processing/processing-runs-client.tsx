@@ -7,6 +7,7 @@ import { EditProcessingRunDialog } from "./edit-processing-run-dialog"
 import { CompleteProcessingRunButton } from "./complete-processing-run-button"
 import { formatDistanceToNow } from "date-fns"
 import { formatNumber, formatWeight } from "@/lib/format-utils"
+import { useSession } from "next-auth/react"
 
 interface ProcessingRun {
   id: string
@@ -45,6 +46,8 @@ interface ProcessingRunsClientProps {
 }
 
 export function ProcessingRunsClient({ initialRuns }: ProcessingRunsClientProps) {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === "ADMIN"
   const [runs, setRuns] = useState(initialRuns)
   const [editingRun, setEditingRun] = useState<ProcessingRun | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -110,13 +113,15 @@ export function ProcessingRunsClient({ initialRuns }: ProcessingRunsClientProps)
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEdit(run)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(run)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
                     {!run.endTime && (
                       <CompleteProcessingRunButton 
                         runId={run.id} 
@@ -143,4 +148,5 @@ export function ProcessingRunsClient({ initialRuns }: ProcessingRunsClientProps)
     </>
   )
 }
+
 

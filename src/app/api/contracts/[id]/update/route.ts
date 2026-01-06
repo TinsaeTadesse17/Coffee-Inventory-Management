@@ -14,9 +14,8 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Only ADMIN, CEO, and EXPORT_MANAGER can edit contracts
-    const allowedRoles = ["ADMIN", "CEO", "EXPORT_MANAGER"]
-    if (!allowedRoles.includes(session.user.role)) {
+    // Only ADMIN can edit contracts
+    if (session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
     }
 

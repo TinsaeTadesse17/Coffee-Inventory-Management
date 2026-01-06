@@ -295,3 +295,4 @@ await prisma.auditLog.create({
 
 *"The edit functionality has been implemented for Users, Batches, and Contracts. All changes are fully logged in the audit trail system, showing who made changes, what was changed, and when. This allows you to correct any data entry errors while maintaining complete accountability and compliance. The audit logs themselves remain read-only for security and regulatory purposes, but all your operational data can now be edited by authorized personnel."*
 
+

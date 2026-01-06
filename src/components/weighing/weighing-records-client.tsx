@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Pencil } from "lucide-react"
 import { EditWeighingRecordDialog } from "./edit-weighing-record-dialog"
 import { formatDistanceToNow } from "date-fns"
+import { useSession } from "next-auth/react"
 
 interface WeighingRecord {
   id: string
@@ -27,6 +28,8 @@ interface WeighingRecordsClientProps {
 }
 
 export function WeighingRecordsClient({ initialRecords }: WeighingRecordsClientProps) {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === "ADMIN"
   const [records, setRecords] = useState(initialRecords)
   const [editingRecord, setEditingRecord] = useState<WeighingRecord | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -54,7 +57,7 @@ export function WeighingRecordsClient({ initialRecords }: WeighingRecordsClientP
               <th className="px-4 py-3">Tare (kg)</th>
               <th className="px-4 py-3">Net (kg)</th>
               <th className="px-4 py-3">Time</th>
-              <th className="px-4 py-3">Actions</th>
+              {isAdmin && <th className="px-4 py-3">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -71,15 +74,17 @@ export function WeighingRecordsClient({ initialRecords }: WeighingRecordsClientP
                 <td className="px-4 py-3 text-muted-foreground">
                   {formatDistanceToNow(new Date(record.timestampIn), { addSuffix: true })}
                 </td>
-                <td className="px-4 py-3">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleEdit(record)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </td>
+                {isAdmin && (
+                  <td className="px-4 py-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEdit(record)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -97,4 +102,5 @@ export function WeighingRecordsClient({ initialRecords }: WeighingRecordsClientP
     </>
   )
 }
+
 

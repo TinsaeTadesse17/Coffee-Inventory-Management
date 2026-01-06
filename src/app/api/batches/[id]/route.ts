@@ -45,9 +45,8 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Only ADMIN, CEO, and PURCHASING can edit batches
-    const allowedRoles = ["ADMIN", "CEO", "PURCHASING"]
-    if (!allowedRoles.includes(session.user.role)) {
+    // Only ADMIN can edit batches
+    if (session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
     }
 

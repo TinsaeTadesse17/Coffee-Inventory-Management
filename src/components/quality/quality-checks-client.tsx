@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Pencil } from "lucide-react"
 import { EditQualityCheckDialog } from "./edit-quality-check-dialog"
 import { format, formatDistanceToNow } from "date-fns"
+import { useSession } from "next-auth/react"
 
 interface QualityCheck {
   id: string
@@ -36,6 +37,8 @@ interface QualityChecksClientProps {
 }
 
 export function QualityChecksClient({ initialChecks }: QualityChecksClientProps) {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === "ADMIN"
   const [checks, setChecks] = useState(initialChecks)
   const [editingCheck, setEditingCheck] = useState<QualityCheck | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -68,7 +71,7 @@ export function QualityChecksClient({ initialChecks }: QualityChecksClientProps)
               <th className="px-4 py-3">Total</th>
               <th className="px-4 py-3">Inspector</th>
               <th className="px-4 py-3">Time</th>
-              <th className="px-4 py-3">Actions</th>
+              {isAdmin && <th className="px-4 py-3">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -96,15 +99,17 @@ export function QualityChecksClient({ initialChecks }: QualityChecksClientProps)
                 <td className="px-4 py-3 text-muted-foreground">
                   {formatDistanceToNow(new Date(check.timestamp), { addSuffix: true })}
                 </td>
-                <td className="px-4 py-3">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleEdit(check)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </td>
+                {isAdmin && (
+                  <td className="px-4 py-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEdit(check)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -122,4 +127,5 @@ export function QualityChecksClient({ initialChecks }: QualityChecksClientProps)
     </>
   )
 }
+
 

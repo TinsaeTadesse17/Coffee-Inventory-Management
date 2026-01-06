@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Pencil } from "lucide-react"
 import { EditWarehouseEntryDialog } from "./edit-warehouse-entry-dialog"
 import { formatDistanceToNow } from "date-fns"
+import { useSession } from "next-auth/react"
 
 interface WarehouseEntry {
   id: string
@@ -30,6 +31,8 @@ interface WarehouseEntriesClientProps {
 }
 
 export function WarehouseEntriesClient({ initialEntries }: WarehouseEntriesClientProps) {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === "ADMIN"
   const [entries, setEntries] = useState(initialEntries)
   const [editingEntry, setEditingEntry] = useState<WarehouseEntry | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -60,7 +63,7 @@ export function WarehouseEntriesClient({ initialEntries }: WarehouseEntriesClien
               <th className="px-4 py-3">Moisture %</th>
               <th className="px-4 py-3">Temp °C</th>
               <th className="px-4 py-3">Recorded</th>
-              <th className="px-4 py-3">Actions</th>
+              {isAdmin && <th className="px-4 py-3">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -86,15 +89,17 @@ export function WarehouseEntriesClient({ initialEntries }: WarehouseEntriesClien
                 <td className="px-4 py-3 text-muted-foreground">
                   {formatDistanceToNow(new Date(entry.arrivalTimestamp), { addSuffix: true })}
                 </td>
-                <td className="px-4 py-3">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleEdit(entry)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </td>
+                {isAdmin && (
+                  <td className="px-4 py-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEdit(entry)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -112,4 +117,5 @@ export function WarehouseEntriesClient({ initialEntries }: WarehouseEntriesClien
     </>
   )
 }
+
 
